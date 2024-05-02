@@ -10,7 +10,7 @@ from sigstore.verify import Verifier, policy
 
 artifact_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl"
 bundle_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
-attestation_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl.json"
+attestation_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl.attestation"
 
 
 def test_sigstore_to_pypi() -> None:
