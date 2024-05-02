@@ -1,5 +1,6 @@
 """Internal implementation tests."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -80,3 +81,14 @@ def test_verification_roundtrip() -> None:
                 identity="facundo.tuesca@trailofbits.com", issuer="https://accounts.google.com"
             ),
         )
+
+
+def test_attestation_payload() -> None:
+    payload = impl.AttestationPayload.from_dist(artifact_path)
+
+    assert payload.digest == hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+    assert payload.distribution == artifact_path.name
+
+    expected = f'{{"digest":"{payload.digest}","distribution":"{payload.distribution}"}}'
+
+    assert bytes(payload) == bytes(expected, "utf-8")

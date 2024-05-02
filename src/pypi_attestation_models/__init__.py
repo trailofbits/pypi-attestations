@@ -4,6 +4,7 @@ __version__ = "0.0.1"
 
 from ._impl import (
     Attestation,
+    AttestationPayload,
     ConversionError,
     InvalidAttestationError,
     VerificationMaterial,
@@ -13,6 +14,7 @@ from ._impl import (
 
 __all__ = [
     "Attestation",
+    "AttestationPayload",
     "ConversionError",
     "InvalidAttestationError",
     "VerificationMaterial",

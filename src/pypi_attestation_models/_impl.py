@@ -7,13 +7,18 @@ from __future__ import annotations
 
 import binascii
 from base64 import b64decode, b64encode
-from typing import Annotated, Any, Literal, NewType
+from hashlib import sha256
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
+import rfc8785
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from pydantic import BaseModel
 from sigstore.models import Bundle, LogEntry
+
+if TYPE_CHECKING:
+    from pathlib import Path  # pragma: no cover
 
 
 class ConversionError(ValueError):
@@ -62,8 +67,34 @@ class Attestation(BaseModel):
     message_signature: str
     """
     The attestation's signature, as `base64(raw-sig)`, where `raw-sig`
-    is the raw bytes of the signing operation.
+    is the raw bytes of the signing operation over the attestation payload.
     """
+
+
+class AttestationPayload(BaseModel):
+    """Attestation Payload object as defined in PEP 740."""
+
+    distribution: str
+    """
+    The file name of the Python package distribution.
+    """
+
+    digest: str
+    """
+    The SHA-256 digest of the distribution's contents, as a hexadecimal string.
+    """
+
+    @classmethod
+    def from_dist(cls, dist: Path) -> AttestationPayload:
+        """Create an `AttestationPayload` from a distribution file."""
+        return AttestationPayload(
+            distribution=dist.name,
+            digest=sha256(dist.read_bytes()).hexdigest(),
+        )
+
+    def __bytes__(self: AttestationPayload) -> bytes:
+        """Convert to bytes using a canonicalized JSON representation (from RFC8785)."""
+        return rfc8785.dumps(self.model_dump())
 
 
 def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
