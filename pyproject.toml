@@ -15,8 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
 ]
-# TODO pin sigstore since we deppend on Bundle._inner, which is an object from the protobuf models and could change
-dependencies = ["cryptography", "pydantic", "sigstore @ git+https://github.com/sigstore/sigstore-python.git@7583a787ab808d3780e1fcdae86b8420fde939b8"]
+dependencies = ["cryptography", "pydantic", "sigstore==3.0.0rc1"]
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
