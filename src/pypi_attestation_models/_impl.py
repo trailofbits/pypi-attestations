@@ -22,6 +22,10 @@ from sigstore.models import Bundle, LogEntry
 if TYPE_CHECKING:
     from pathlib import Path  # pragma: no cover
 
+    from sigstore.sign import Signer  # pragma: no cover
+    from sigstore.verify import Verifier  # pragma: no cover
+    from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
+
 
 class ConversionError(ValueError):
     """The base error for all errors during conversion."""
@@ -72,6 +76,15 @@ class Attestation(BaseModel):
     is the raw bytes of the signing operation over the attestation payload.
     """
 
+    def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
+        """Verify against an existing Python artifact.
+
+        On failure, raises `sigstore.errors.InvalidAttestationError`.
+        """
+        payload_to_verify = AttestationPayload.from_dist(dist)
+        bundle = pypi_to_sigstore(self)
+        verifier.verify_artifact(bytes(payload_to_verify), bundle, policy)
+
 
 class AttestationPayload(BaseModel):
     """Attestation Payload object as defined in PEP 740."""
@@ -93,6 +106,11 @@ class AttestationPayload(BaseModel):
             distribution=dist.name,
             digest=sha256(dist.read_bytes()).hexdigest(),
         )
+
+    def sign(self, signer: Signer) -> Attestation:
+        """Create a PEP 740 attestation by signing this payload."""
+        sigstore_bundle = signer.sign_artifact(bytes(self))
+        return sigstore_to_pypi(sigstore_bundle)
 
     def __bytes__(self: AttestationPayload) -> bytes:
         """Convert to bytes using a canonicalized JSON representation (from RFC8785)."""

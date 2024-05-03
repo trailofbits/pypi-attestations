@@ -73,11 +73,11 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["ALL"]
-# ANN102 is deprecated
+# ANN101 and ANN102 are deprecated
 # D203 and D213 are incompatible with D211 and D212 respectively.
 # COM812 and ISC001 can cause conflicts when using ruff as a formatter.
 # See https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules.
-ignore = ["ANN102", "D203", "D213", "COM812", "ISC001"]
+ignore = ["ANN101", "ANN102", "D203", "D213", "COM812", "ISC001"]
 
 [tool.ruff.lint.per-file-ignores]
 
