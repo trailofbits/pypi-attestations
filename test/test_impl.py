@@ -7,6 +7,7 @@ from pathlib import Path
 import pretend
 import pypi_attestation_models._impl as impl
 import pytest
+import sigstore.errors
 from sigstore.models import Bundle
 from sigstore.verify import Verifier, policy
 
@@ -51,6 +52,20 @@ class TestSigningAndVerifying:
         assert verify_args[0] == expected_payload
         assert verify_args[1].to_json() == expected_bundle.to_json()
         assert verify_args[2] == policy_stub
+
+    def test_actual_verify(self) -> None:
+        # Test the actual online verification using a pre-generated attestation
+        verifier = Verifier.production()
+        identity_policy = policy.Identity(
+            identity="facundo.tuesca@trailofbits.com", issuer="https://accounts.google.com"
+        )
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+        attestation.verify(verifier, identity_policy, artifact_path)
+
+        with pytest.raises(sigstore.errors.VerificationError):
+            # Pass a file that is not the Python artifact this attestation is for
+            attestation.verify(verifier, identity_policy, bundle_path)
 
 
 class TestModelConversions:
