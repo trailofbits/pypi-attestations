@@ -54,6 +54,25 @@ def test_pypi_to_sigstore_invalid_certificate_base64() -> None:
         impl.pypi_to_sigstore(attestation)
 
 
+def test_pypi_to_sigstore_invalid_certificate() -> None:
+    with attestation_path.open("rb") as f:
+        attestation = impl.Attestation.model_validate_json(f.read())
+    new_cert = attestation.verification_material.certificate.replace("M", "x")
+    attestation.verification_material.certificate = new_cert
+    with pytest.raises(impl.InvalidAttestationError):
+        impl.pypi_to_sigstore(attestation)
+
+
+def test_pypi_to_sigstore_invalid_log_entry() -> None:
+    with attestation_path.open("rb") as f:
+        attestation = impl.Attestation.model_validate_json(f.read())
+    new_log_entry = attestation.verification_material.transparency_entries[0]
+    del new_log_entry["inclusionProof"]
+    attestation.verification_material.transparency_entries = [new_log_entry]
+    with pytest.raises(impl.InvalidAttestationError):
+        impl.pypi_to_sigstore(attestation)
+
+
 def test_verification_roundtrip() -> None:
     # Load an existing Sigstore bundle, check that verification passes,
     # convert it to a PyPI attestation and then back again to a Sigstore
