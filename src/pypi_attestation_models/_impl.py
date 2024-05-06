@@ -11,10 +11,12 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import rfc8785
+import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from pydantic import BaseModel
+from pydantic_core import ValidationError
 from sigstore.models import Bundle, LogEntry
 
 if TYPE_CHECKING:
@@ -123,9 +125,18 @@ def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
         raise InvalidAttestationError(str(err)) from err
 
     tlog_entry = pypi_attestation.verification_material.transparency_entries[0]
+    try:
+        certificate = x509.load_der_x509_certificate(certificate_bytes)
+    except ValueError as err:
+        raise InvalidAttestationError(str(err)) from err
+
+    try:
+        log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
+    except (ValidationError, sigstore.errors.Error) as err:
+        raise InvalidAttestationError(str(err)) from err
 
     return Bundle.from_parts(
-        cert=x509.load_der_x509_certificate(certificate_bytes),
+        cert=certificate,
         sig=signature_bytes,
-        log_entry=LogEntry._from_dict_rekor(tlog_entry),  # noqa: SLF001
+        log_entry=log_entry,
     )
