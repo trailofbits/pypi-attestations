@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
 ]
-dependencies = ["cryptography", "pydantic", "sigstore==3.0.0rc1"]
+dependencies = ["cryptography", "pydantic", "sigstore==3.0.0rc2"]
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
