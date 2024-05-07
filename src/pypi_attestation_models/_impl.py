@@ -128,7 +128,7 @@ def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
         version=1,
         verification_material=VerificationMaterial(
             certificate=b64encode(certificate).decode("ascii"),
-            transparency_entries=[sigstore_bundle.log_entry._to_dict_rekor()],  # noqa: SLF001
+            transparency_entries=[TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())],  # noqa: SLF001
         ),
         message_signature=b64encode(signature).decode("ascii"),
     )
