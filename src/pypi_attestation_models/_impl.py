@@ -22,6 +22,10 @@ from sigstore.models import Bundle, LogEntry
 if TYPE_CHECKING:
     from pathlib import Path  # pragma: no cover
 
+    from sigstore.sign import Signer  # pragma: no cover
+    from sigstore.verify import Verifier  # pragma: no cover
+    from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
+
 
 class ConversionError(ValueError):
     """The base error for all errors during conversion."""
@@ -33,6 +37,14 @@ class InvalidAttestationError(ConversionError):
     def __init__(self: InvalidAttestationError, msg: str) -> None:
         """Initialize an `InvalidAttestationError`."""
         super().__init__(f"Could not convert input Attestation: {msg}")
+
+
+class VerificationError(ValueError):
+    """The PyPI Attestation failed verification."""
+
+    def __init__(self: VerificationError, msg: str) -> None:
+        """Initialize an `VerificationError`."""
+        super().__init__(f"Verification failed: {msg}")
 
 
 TransparencyLogEntry = NewType("TransparencyLogEntry", dict[str, Any])
@@ -72,6 +84,21 @@ class Attestation(BaseModel):
     is the raw bytes of the signing operation over the attestation payload.
     """
 
+    def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
+        """Verify against an existing Python artifact.
+
+        On failure, raises:
+        - `InvalidAttestationError` if the attestation could not be converted to
+           a Sigstore Bundle.
+        - `VerificationError` if the attestation could not be verified.
+        """
+        payload_to_verify = AttestationPayload.from_dist(dist)
+        bundle = pypi_to_sigstore(self)
+        try:
+            verifier.verify_artifact(bytes(payload_to_verify), bundle, policy)
+        except sigstore.errors.VerificationError as err:
+            raise VerificationError(str(err)) from err
+
 
 class AttestationPayload(BaseModel):
     """Attestation Payload object as defined in PEP 740."""
@@ -94,6 +121,11 @@ class AttestationPayload(BaseModel):
             digest=sha256(dist.read_bytes()).hexdigest(),
         )
 
+    def sign(self, signer: Signer) -> Attestation:
+        """Create a PEP 740 attestation by signing this payload."""
+        sigstore_bundle = signer.sign_artifact(bytes(self))
+        return sigstore_to_pypi(sigstore_bundle)
+
     def __bytes__(self: AttestationPayload) -> bytes:
         """Convert to bytes using a canonicalized JSON representation (from RFC8785)."""
         return rfc8785.dumps(self.model_dump())
@@ -110,7 +142,7 @@ def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
         version=1,
         verification_material=VerificationMaterial(
             certificate=b64encode(certificate).decode("ascii"),
-            transparency_entries=[sigstore_bundle.log_entry._to_dict_rekor()],  # noqa: SLF001
+            transparency_entries=[TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())],  # noqa: SLF001
         ),
         message_signature=b64encode(signature).decode("ascii"),
     )

@@ -18,6 +18,42 @@ python -m pip install pypi-attestation-models
 
 See the full API documentation [here].
 
+
+### Signing and verification
+Use these APIs to create a PEP 740-compliant `Attestation` object by signing a Python artifact
+(i.e: sdist or wheel files), and to verify an `Attestation` object against a Python artifact.
+
+```python
+from pathlib import Path
+
+from pypi_attestation_models import Attestation, AttestationPayload
+from sigstore.oidc import Issuer
+from sigstore.sign import SigningContext
+from sigstore.verify import Verifier, policy
+
+artifact_path = Path("test_package-0.0.1-py3-none-any.whl")
+
+# Sign a Python artifact
+issuer = Issuer.production()
+identity_token = issuer.identity_token()
+signing_ctx = SigningContext.production()
+with signing_ctx.signer(identity_token, cache=True) as signer:
+    attestation = AttestationPayload.from_dist(artifact_path).sign(signer)
+
+print(attestation.model_dump_json())
+
+# Verify an attestation against a Python artifact
+attestation_path = Path("test_package-0.0.1-py3-none-any.whl.attestation")
+attestation = Attestation.model_validate_json(attestation_path.read_bytes())
+verifier = Verifier.production()
+policy = policy.Identity(identity="example@gmail.com", issuer="https://accounts.google.com")
+attestation.verify(verifier, policy, attestation_path)
+
+```
+
+### Low-level model conversions
+These conversions assume that any Sigstore Bundle used as an input was created
+by signing an `AttestationPayload` object.
 ```python
 from pathlib import Path
 from pypi_attestation_models import pypi_to_sigstore, sigstore_to_pypi, Attestation
