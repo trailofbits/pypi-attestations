@@ -8,8 +8,6 @@
 
 A library to convert between Sigstore Bundles and [PEP 740] Attestation objects
 
-[PEP 740]: https://peps.python.org/pep-0740/
-
 ## Installation
 
 ```bash
@@ -20,8 +18,8 @@ python -m pip install pypi-attestation-models
 
 See the full API documentation [here].
 
-
 ### Signing and verification
+
 Use these APIs to create a PEP 740-compliant `Attestation` object by signing a Python artifact
 (i.e: sdist or wheel files), and to verify an `Attestation` object against a Python artifact.
 
@@ -50,7 +48,6 @@ attestation = Attestation.model_validate_json(attestation_path.read_bytes())
 verifier = Verifier.production()
 policy = policy.Identity(identity="example@gmail.com", issuer="https://accounts.google.com")
 attestation.verify(verifier, policy, attestation_path)
-
 ```
 
 ### Low-level model conversions
@@ -76,5 +73,7 @@ with attestation_path.open("rb") as f:
 bundle = pypi_to_sigstore(attestation)
 print(bundle.to_json())
 ```
+
+[PEP 740]: https://peps.python.org/pep-0740/
 
 [here]: https://trailofbits.github.io/pypi-attestation-models
