@@ -7,7 +7,6 @@ from pathlib import Path
 import pretend
 import pypi_attestation_models._impl as impl
 import pytest
-import sigstore.errors
 from sigstore.models import Bundle
 from sigstore.verify import Verifier, policy
 
@@ -63,7 +62,7 @@ class TestSigningAndVerifying:
         attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
         attestation.verify(verifier, identity_policy, artifact_path)
 
-        with pytest.raises(sigstore.errors.VerificationError):
+        with pytest.raises(impl.VerificationError):
             # Pass a file that is not the Python artifact this attestation is for
             attestation.verify(verifier, identity_policy, bundle_path)
 

@@ -39,6 +39,14 @@ class InvalidAttestationError(ConversionError):
         super().__init__(f"Could not convert input Attestation: {msg}")
 
 
+class VerificationError(ValueError):
+    """The PyPI Attestation failed verification."""
+
+    def __init__(self: VerificationError, msg: str) -> None:
+        """Initialize an `VerificationError`."""
+        super().__init__(f"Verification failed: {msg}")
+
+
 TransparencyLogEntry = NewType("TransparencyLogEntry", dict[str, Any])
 
 
@@ -79,11 +87,17 @@ class Attestation(BaseModel):
     def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
         """Verify against an existing Python artifact.
 
-        On failure, raises `sigstore.errors.InvalidAttestationError`.
+        On failure, raises:
+        - `InvalidAttestationError` if the attestation could not be converted to
+           a Sigstore Bundle.
+        - `VerificationError` if the attestation could not be verified.
         """
         payload_to_verify = AttestationPayload.from_dist(dist)
         bundle = pypi_to_sigstore(self)
-        verifier.verify_artifact(bytes(payload_to_verify), bundle, policy)
+        try:
+            verifier.verify_artifact(bytes(payload_to_verify), bundle, policy)
+        except sigstore.errors.VerificationError as err:
+            raise VerificationError(str(err)) from err
 
 
 class AttestationPayload(BaseModel):
