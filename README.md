@@ -6,7 +6,9 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/python:pypi-attestation-models.svg)](https://repology.org/project/python:pypi-attestation-models/versions)
 <!--- BADGES: END --->
 
-A library to convert between Sigstore Bundles and PEP-740 Attestation objects
+A library to convert between Sigstore Bundles and [PEP 740] Attestation objects
+
+[PEP 740]: https://peps.python.org/pep-0740/
 
 ## Installation
 
