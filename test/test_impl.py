@@ -160,3 +160,4 @@ class TestModelConversions:
         expected = f'{{"digest":"{payload.digest}","distribution":"{payload.distribution}"}}'
 
         assert bytes(payload) == bytes(expected, "utf-8")
+        assert json.loads(bytes(payload)) == json.loads(expected)
