@@ -117,6 +117,8 @@ class AttestationPayload(BaseModel):
     def from_dist(cls, dist: Path) -> AttestationPayload:
         """Create an `AttestationPayload` from a distribution file."""
         with dist.open(mode="rb", buffering=0) as io:
+            # Replace this with `hashlib.file_digest()` once
+            # our minimum supported Python is >=3.11
             digest = _sha256_streaming(io).hex()
 
         return AttestationPayload(
