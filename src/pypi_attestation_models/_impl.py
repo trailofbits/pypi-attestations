@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import binascii
 from base64 import b64decode, b64encode
-from hashlib import sha256
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import rfc8785
@@ -17,6 +16,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from pydantic import BaseModel
 from pydantic_core import ValidationError
+from sigstore._utils import _sha256_streaming
 from sigstore.models import Bundle, LogEntry
 
 if TYPE_CHECKING:
@@ -116,9 +116,14 @@ class AttestationPayload(BaseModel):
     @classmethod
     def from_dist(cls, dist: Path) -> AttestationPayload:
         """Create an `AttestationPayload` from a distribution file."""
+        with dist.open(mode="rb", buffering=0) as io:
+            # Replace this with `hashlib.file_digest()` once
+            # our minimum supported Python is >=3.11
+            digest = _sha256_streaming(io).hex()
+
         return AttestationPayload(
             distribution=dist.name,
-            digest=sha256(dist.read_bytes()).hexdigest(),
+            digest=digest,
         )
 
     def sign(self, signer: Signer) -> Attestation:
