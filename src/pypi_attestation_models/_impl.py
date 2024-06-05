@@ -5,19 +5,20 @@ This module is NOT a public API, and is not considered stable.
 
 from __future__ import annotations
 
-import binascii
-from base64 import b64decode, b64encode
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
-import rfc8785
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from pydantic import BaseModel
+from pydantic import Base64Bytes, BaseModel
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
+from sigstore.dsse import Envelope as DsseEnvelope
+from sigstore.dsse import _DigestSet, _Statement, _StatementBuilder, _Subject
 from sigstore.models import Bundle, LogEntry
+from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
+from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
 if TYPE_CHECKING:
     from pathlib import Path  # pragma: no cover
@@ -53,7 +54,7 @@ TransparencyLogEntry = NewType("TransparencyLogEntry", dict[str, Any])
 class VerificationMaterial(BaseModel):
     """Cryptographic materials used to verify attestation objects."""
 
-    certificate: str
+    certificate: Base64Bytes
     """
     The signing certificate, as `base64(DER(cert))`.
     """
@@ -78,11 +79,27 @@ class Attestation(BaseModel):
     Cryptographic materials used to verify `message_signature`.
     """
 
-    message_signature: str
+    envelope: Envelope
     """
-    The attestation's signature, as `base64(raw-sig)`, where `raw-sig`
-    is the raw bytes of the signing operation over the attestation payload.
+    The enveloped attestation statement and signature.
     """
+
+    @classmethod
+    def sign(cls, signer: Signer, dist: Path) -> Attestation:
+        """Create an envelope, with signature, from a distribution file."""
+        with dist.open(mode="rb", buffering=0) as io:
+            # Replace this with `hashlib.file_digest()` once
+            # our minimum supported Python is >=3.11
+            digest = _sha256_streaming(io).hex()
+
+        stmt = (
+            _StatementBuilder()
+            .subjects([_Subject(name=dist.name, digest=_DigestSet(root={"sha256": digest}))])
+            .build()
+        )
+        bundle = signer.sign_dsse(stmt)
+
+        return sigstore_to_pypi(bundle)
 
     def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
         """Verify against an existing Python artifact.
@@ -92,48 +109,52 @@ class Attestation(BaseModel):
            a Sigstore Bundle.
         - `VerificationError` if the attestation could not be verified.
         """
-        payload_to_verify = AttestationPayload.from_dist(dist)
-        bundle = pypi_to_sigstore(self)
-        try:
-            verifier.verify_artifact(bytes(payload_to_verify), bundle, policy)
-        except sigstore.errors.VerificationError as err:
-            raise VerificationError(str(err)) from err
-
-
-class AttestationPayload(BaseModel):
-    """Attestation Payload object as defined in PEP 740."""
-
-    distribution: str
-    """
-    The file name of the Python package distribution.
-    """
-
-    digest: str
-    """
-    The SHA-256 digest of the distribution's contents, as a hexadecimal string.
-    """
-
-    @classmethod
-    def from_dist(cls, dist: Path) -> AttestationPayload:
-        """Create an `AttestationPayload` from a distribution file."""
         with dist.open(mode="rb", buffering=0) as io:
             # Replace this with `hashlib.file_digest()` once
             # our minimum supported Python is >=3.11
-            digest = _sha256_streaming(io).hex()
+            expected_digest = _sha256_streaming(io).hex()
 
-        return AttestationPayload(
-            distribution=dist.name,
-            digest=digest,
-        )
+        bundle = pypi_to_sigstore(self)
+        try:
+            type_, payload = verifier.verify_dsse(bundle, policy)
+        except sigstore.errors.VerificationError as err:
+            raise VerificationError(str(err)) from err
 
-    def sign(self, signer: Signer) -> Attestation:
-        """Create a PEP 740 attestation by signing this payload."""
-        sigstore_bundle = signer.sign_artifact(bytes(self))
-        return sigstore_to_pypi(sigstore_bundle)
+        if type_ != DsseEnvelope._TYPE:  # noqa: SLF001
+            raise VerificationError(f"expected JSON envelope, got {type_}")
 
-    def __bytes__(self: AttestationPayload) -> bytes:
-        """Convert to bytes using a canonicalized JSON representation (from RFC8785)."""
-        return rfc8785.dumps(self.model_dump())
+        try:
+            statement = _Statement.model_validate_json(payload)
+        except ValidationError as e:
+            raise VerificationError(f"invalid statement: {str(e)}")
+
+        if len(statement.subjects) != 1:
+            raise VerificationError("too many subjects in statement (must be exactly one)")
+
+        subject = statement.subjects[0]
+        if subject.name != dist.name:
+            raise VerificationError(
+                f"subject does not match distribution name: {subject.name} != {dist.name}"
+            )
+
+        digest = subject.digest.root.get("sha256")
+        if digest is None or digest != expected_digest:
+            raise VerificationError("subject does not match distribution digest")
+
+
+class Envelope(BaseModel):
+    statement: Base64Bytes
+    """
+    The attestation statement.
+
+    This is represented as opaque bytes on the wire (encoded as base64),
+    but it MUST be an JSON in-toto v1 Statement.
+    """
+
+    signature: Base64Bytes
+    """
+    A signature for the above statement, encoded as base64.
+    """
 
 
 def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
@@ -142,28 +163,40 @@ def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
         encoding=serialization.Encoding.DER
     )
 
-    signature = sigstore_bundle._inner.message_signature.signature  # noqa: SLF001
+    envelope = sigstore_bundle._inner.dsse_envelope  # noqa: SLF001
+
+    if len(envelope.signatures) != 1:
+        raise InvalidAttestationError(
+            f"expected exactly one signature, got {len(envelope.signatures)}"
+        )
+
     return Attestation(
         version=1,
         verification_material=VerificationMaterial(
-            certificate=b64encode(certificate).decode("ascii"),
+            certificate=certificate,
             transparency_entries=[TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())],  # noqa: SLF001
         ),
-        message_signature=b64encode(signature).decode("ascii"),
+        envelope=Envelope(statement=envelope.payload, signature=envelope.signatures[0].sig),
     )
 
 
 def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
     """Convert a PyPI attestation object as defined in PEP 740 into a Sigstore Bundle."""
-    try:
-        certificate_bytes = b64decode(pypi_attestation.verification_material.certificate)
-        signature_bytes = b64decode(pypi_attestation.message_signature)
-    except binascii.Error as err:
-        raise InvalidAttestationError(str(err)) from err
+    cert_bytes = pypi_attestation.verification_material.certificate
+    statement = pypi_attestation.envelope.statement
+    signature = pypi_attestation.envelope.signature
+
+    evp = DsseEnvelope(
+        _Envelope(
+            payload=statement,
+            payload_type=DsseEnvelope._TYPE,  # noqa: SLF001
+            signatures=[_Signature(sig=signature)],
+        )
+    )
 
     tlog_entry = pypi_attestation.verification_material.transparency_entries[0]
     try:
-        certificate = x509.load_der_x509_certificate(certificate_bytes)
+        certificate = x509.load_der_x509_certificate(cert_bytes)
     except ValueError as err:
         raise InvalidAttestationError(str(err)) from err
 
@@ -172,8 +205,8 @@ def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
     except (ValidationError, sigstore.errors.Error) as err:
         raise InvalidAttestationError(str(err)) from err
 
-    return Bundle.from_parts(
+    return Bundle._from_parts(  # noqa: SLF001
         cert=certificate,
-        sig=signature_bytes,
+        content=evp,
         log_entry=log_entry,
     )

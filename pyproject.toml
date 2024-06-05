@@ -8,14 +8,17 @@ dynamic = ["version"]
 description = "A library to convert between Sigstore Bundles and PEP-740 Attestation objects"
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [
-    { name = "Trail of Bits", email = "opensource@trailofbits.com" },
-]
+authors = [{ name = "Trail of Bits", email = "opensource@trailofbits.com" }]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
 ]
-dependencies = ["cryptography", "pydantic", "sigstore~=3.0.0"]
+dependencies = [
+    "cryptography",
+    "pydantic",
+    "sigstore~=3.0.0",
+    "sigstore-protobuf-specs",
+]
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
@@ -32,7 +35,6 @@ lint = [
     "interrogate",
 ]
 dev = ["pypi-attestation-models[doc,test,lint]", "twine", "wheel", "build"]
-
 
 
 [project.urls]
@@ -72,7 +74,7 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["ALL"]
+select = ["E", "F", "I", "W", "UP", "ANN", "D", "COM", "ISC", "TCH", "SLF"]
 # ANN101 and ANN102 are deprecated
 # D203 and D213 are incompatible with D211 and D212 respectively.
 # COM812 and ISC001 can cause conflicts when using ruff as a formatter.
