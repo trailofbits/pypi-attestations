@@ -39,10 +39,42 @@ class TestAttestation:
 
     def test_verify(self) -> None:
         verifier = Verifier.staging()
+        # Our checked-in asset has this identity.
+        pol = policy.Identity(
+            identity="william@yossarian.net", issuer="https://github.com/login/oauth"
+        )
 
         attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
-        attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path)
+        attestation.verify(verifier, pol, artifact_path)
 
         # convert the attestation to a bundle and verify it that way too
         bundle = impl.pypi_to_sigstore(attestation)
         verifier.verify_dsse(bundle, policy.UnsafeNoOp())
+
+    def test_verify_digest_mismatch(self, tmp_path: Path) -> None:
+        verifier = Verifier.staging()
+        # Our checked-in asset has this identity.
+        pol = policy.Identity(
+            identity="william@yossarian.net", issuer="https://github.com/login/oauth"
+        )
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+
+        modified_artifact_path = tmp_path / artifact_path.name
+        modified_artifact_path.write_bytes(b"nothing")
+
+        # attestation has the correct filename, but a mismatching digest.
+        with pytest.raises(
+            impl.VerificationError, match="subject does not match distribution digest"
+        ):
+            attestation.verify(verifier, pol, modified_artifact_path)
+
+    def test_verify_policy_mismatch(self) -> None:
+        verifier = Verifier.staging()
+        # Wrong identity.
+        pol = policy.Identity(identity="fake@example.com", issuer="https://github.com/login/oauth")
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+
+        with pytest.raises(impl.VerificationError, match=r"Certificate's SANs do not match"):
+            attestation.verify(verifier, pol, artifact_path)
