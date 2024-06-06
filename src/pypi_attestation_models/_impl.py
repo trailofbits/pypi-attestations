@@ -127,6 +127,7 @@ class Attestation(BaseModel):
             raise VerificationError("too many subjects in statement (must be exactly one)")
 
         subject = statement.subjects[0]
+        # TODO: This is too brittle: we need to check with `parse_{sdist,wheel}_filename`.
         if subject.name != dist.name:
             raise VerificationError(
                 f"subject does not match distribution name: {subject.name} != {dist.name}"
