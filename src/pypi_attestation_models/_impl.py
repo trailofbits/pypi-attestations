@@ -145,6 +145,8 @@ class Attestation(BaseModel):
 
 
 class Envelope(BaseModel):
+    """The attestation envelope, containing the attested-for payload and its signature."""
+
     statement: Base64Bytes
     """
     The attestation statement.
