@@ -29,19 +29,15 @@ if TYPE_CHECKING:
     from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
 
 
-class ConversionError(ValueError):
+class AttestationError(ValueError):
+    """Base error for all APIs."""
+
+
+class ConversionError(AttestationError):
     """The base error for all errors during conversion."""
 
 
-class InvalidAttestationError(ConversionError):
-    """The PyPI Attestation given as input is not valid."""
-
-    def __init__(self: InvalidAttestationError, msg: str) -> None:
-        """Initialize an `InvalidAttestationError`."""
-        super().__init__(f"Could not convert input Attestation: {msg}")
-
-
-class VerificationError(ValueError):
+class VerificationError(AttestationError):
     """The PyPI Attestation failed verification."""
 
     def __init__(self: VerificationError, msg: str) -> None:
@@ -106,10 +102,7 @@ class Attestation(BaseModel):
     def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
         """Verify against an existing Python artifact.
 
-        On failure, raises:
-        - `InvalidAttestationError` if the attestation could not be converted to
-           a Sigstore Bundle.
-        - `VerificationError` if the attestation could not be verified.
+        On failure, raises an appropriate subclass of `AttestationError`.
         """
         with dist.open(mode="rb", buffering=0) as io:
             # Replace this with `hashlib.file_digest()` once
@@ -170,9 +163,7 @@ def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
     envelope = sigstore_bundle._inner.dsse_envelope  # noqa: SLF001
 
     if len(envelope.signatures) != 1:
-        raise InvalidAttestationError(
-            f"expected exactly one signature, got {len(envelope.signatures)}"
-        )
+        raise ConversionError(f"expected exactly one signature, got {len(envelope.signatures)}")
 
     return Attestation(
         version=1,
@@ -205,12 +196,12 @@ def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
     try:
         certificate = x509.load_der_x509_certificate(cert_bytes)
     except ValueError as err:
-        raise InvalidAttestationError(str(err)) from err
+        raise ConversionError(str(err)) from err
 
     try:
         log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
     except (ValidationError, sigstore.errors.Error) as err:
-        raise InvalidAttestationError(str(err)) from err
+        raise ConversionError(str(err)) from err
 
     return Bundle._from_parts(  # noqa: SLF001
         cert=certificate,
