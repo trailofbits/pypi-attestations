@@ -5,6 +5,7 @@ This module is NOT a public API, and is not considered stable.
 
 from __future__ import annotations
 
+import base64
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
@@ -95,6 +96,7 @@ class Attestation(BaseModel):
         stmt = (
             _StatementBuilder()
             .subjects([_Subject(name=dist.name, digest=_DigestSet(root={"sha256": digest}))])
+            .predicate_type("https://docs.pypi.org/attestations/publish/v1")
             .build()
         )
         bundle = signer.sign_dsse(stmt)
@@ -173,10 +175,13 @@ def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
     return Attestation(
         version=1,
         verification_material=VerificationMaterial(
-            certificate=certificate,
+            certificate=base64.b64encode(certificate),
             transparency_entries=[TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())],  # noqa: SLF001
         ),
-        envelope=Envelope(statement=envelope.payload, signature=envelope.signatures[0].sig),
+        envelope=Envelope(
+            statement=base64.b64encode(envelope.payload),
+            signature=base64.b64encode(envelope.signatures[0].sig),
+        ),
     )
 
 

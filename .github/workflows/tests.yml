@@ -16,6 +16,8 @@ jobs:
           - "3.11"
           - "3.12"
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # unit tests use the ambient OIDC credential
     steps:
       - uses: actions/checkout@v4
 
