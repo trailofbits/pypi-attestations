@@ -7,6 +7,7 @@ import pretend
 import pypi_attestation_models._impl as impl
 import pytest
 from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
+from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
@@ -148,3 +149,27 @@ class TestAttestation:
 
         with pytest.raises(impl.VerificationError, match="too many subjects in statement"):
             attestation.verify(verifier, pol, artifact_path)
+
+
+def test_sigstore_to_pypi_missing_signatures() -> None:
+    bundle = Bundle.from_json(bundle_path.read_bytes())
+    bundle._inner.dsse_envelope.signatures = []  # noqa: SLF001
+
+    with pytest.raises(impl.ConversionError, match="expected exactly one signature, got 0"):
+        impl.sigstore_to_pypi(bundle)
+
+
+def test_pypi_to_sigstore_invalid_cert() -> None:
+    attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+    attestation.verification_material.certificate = b"foo"
+
+    with pytest.raises(impl.ConversionError, match="invalid X.509 certificate"):
+        impl.pypi_to_sigstore(attestation)
+
+
+def test_pypi_to_sigstore_invalid_tlog_entry() -> None:
+    attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+    attestation.verification_material.transparency_entries[0].clear()
+
+    with pytest.raises(impl.ConversionError, match="invalid transparency log entry"):
+        impl.pypi_to_sigstore(attestation)

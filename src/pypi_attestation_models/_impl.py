@@ -196,12 +196,12 @@ def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
     try:
         certificate = x509.load_der_x509_certificate(cert_bytes)
     except ValueError as err:
-        raise ConversionError(str(err)) from err
+        raise ConversionError("invalid X.509 certificate") from err
 
     try:
         log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
     except (ValidationError, sigstore.errors.Error) as err:
-        raise ConversionError(str(err)) from err
+        raise ConversionError("invalid transparency log entry") from err
 
     return Bundle._from_parts(  # noqa: SLF001
         cert=certificate,
