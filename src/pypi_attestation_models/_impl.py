@@ -6,7 +6,6 @@ This module is NOT a public API, and is not considered stable.
 from __future__ import annotations
 
 import base64
-from re import L
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
