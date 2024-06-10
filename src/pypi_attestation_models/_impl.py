@@ -6,12 +6,14 @@ This module is NOT a public API, and is not considered stable.
 from __future__ import annotations
 
 import base64
+from re import L
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from packaging.utils import parse_sdist_filename, parse_wheel_filename
 from pydantic import Base64Bytes, BaseModel
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
@@ -91,7 +93,14 @@ class Attestation(BaseModel):
 
         stmt = (
             _StatementBuilder()
-            .subjects([_Subject(name=dist.name, digest=_DigestSet(root={"sha256": digest}))])
+            .subjects(
+                [
+                    _Subject(
+                        name=_ultranormalize_dist_filename(dist.name),
+                        digest=_DigestSet(root={"sha256": digest}),
+                    )
+                ]
+            )
             .predicate_type("https://docs.pypi.org/attestations/publish/v1")
             .build()
         )
@@ -127,10 +136,10 @@ class Attestation(BaseModel):
             raise VerificationError("too many subjects in statement (must be exactly one)")
 
         subject = statement.subjects[0]
-        # TODO: This is too brittle: we need to check with `parse_{sdist,wheel}_filename`.
-        if subject.name != dist.name:
+        normalized = _ultranormalize_dist_filename(dist.name)
+        if subject.name != _ultranormalize_dist_filename(dist.name):
             raise VerificationError(
-                f"subject does not match distribution name: {subject.name} != {dist.name}"
+                f"subject does not match distribution name: {subject.name} != {normalized}"
             )
 
         digest = subject.digest.root.get("sha256")
@@ -209,3 +218,55 @@ def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
         content=evp,
         log_entry=log_entry,
     )
+
+
+def _ultranormalize_dist_filename(dist: str) -> str:
+    """Return an "ultranormalized" form of the given distribution filename.
+
+    This form is equivalent to the normalized form for sdist and wheel
+    filenames, with the additional stipulation that compressed tag sets,
+    if present, are also sorted alphanumerically.
+
+    Raises `ValueError` on any invalid distribution filename.
+    """
+    # NOTE: .whl and .tar.gz are assumed lowercase, since `packaging`
+    # already rejects non-lowercase variants.
+    if dist.endswith(".whl"):
+        # `parse_wheel_filename` raises a supertype of ValueError on failure.
+        name, ver, build, tags = parse_wheel_filename(dist)
+
+        # The name has been normalized to replace runs of `[.-_]+` with `-`,
+        # which then needs to be replaced with `_` for the wheel.
+        name = name.replace("-", "_")
+
+        # `parse_wheel_filename` normalizes the name and version for us,
+        # so all we need to do is re-compress the tag set in a canonical
+        # order.
+        # NOTE(ww): This is written in a not very efficient manner, since
+        # I wasn't feeling smart.
+        impls, abis, platforms = set(), set(), set()
+        for tag in tags:
+            impls.add(tag.interpreter)
+            abis.add(tag.abi)
+            platforms.add(tag.platform)
+
+        impl_tag = ".".join(sorted(impls))
+        abi_tag = ".".join(sorted(abis))
+        platform_tag = ".".join(sorted(platforms))
+
+        if build:
+            parts = "-".join(
+                [name, str(ver), f"{build[0]}{build[1]}", impl_tag, abi_tag, platform_tag]
+            )
+        else:
+            parts = "-".join([name, str(ver), impl_tag, abi_tag, platform_tag])
+
+        return f"{parts}.whl"
+
+    elif dist.endswith(".tar.gz"):
+        # `parse_sdist_filename` raises a supertype of ValueError on failure.
+        name, ver = parse_sdist_filename(dist)
+        name = name.replace("-", "_")
+        return f"{name}-{ver}.tar.gz"
+    else:
+        raise ValueError(f"unknown distribution format: {dist}")

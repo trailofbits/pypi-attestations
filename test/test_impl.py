@@ -173,3 +173,89 @@ def test_pypi_to_sigstore_invalid_tlog_entry() -> None:
 
     with pytest.raises(impl.ConversionError, match="invalid transparency log entry"):
         impl.pypi_to_sigstore(attestation)
+
+
+class TestPackaging:
+    """Behavioral backstops for our dependency on `packaging`."""
+
+    def test_exception_types(self) -> None:
+        from packaging.utils import InvalidSdistFilename, InvalidWheelFilename
+
+        assert issubclass(InvalidSdistFilename, ValueError)
+        assert issubclass(InvalidWheelFilename, ValueError)
+
+
+@pytest.mark.parametrize(
+    ("input", "normalized"),
+    [
+        # wheel: fully normalized, no changes
+        ("foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-any.whl"),
+        # wheel: dist name is not case normalized
+        ("Foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-any.whl"),
+        ("FOO-1.0-py3-none-any.whl", "foo-1.0-py3-none-any.whl"),
+        ("FoO-1.0-py3-none-any.whl", "foo-1.0-py3-none-any.whl"),
+        # wheel: dist name contains alternate separators
+        ("foo.bar-1.0-py3-none-any.whl", "foo_bar-1.0-py3-none-any.whl"),
+        ("foo_bar-1.0-py3-none-any.whl", "foo_bar-1.0-py3-none-any.whl"),
+        # wheel: dist version is not normalized
+        ("foo-1.0beta1-py3-none-any.whl", "foo-1.0b1-py3-none-any.whl"),
+        ("foo-1.0beta.1-py3-none-any.whl", "foo-1.0b1-py3-none-any.whl"),
+        ("foo-01.0beta.1-py3-none-any.whl", "foo-1.0b1-py3-none-any.whl"),
+        # wheel: build tag works as expected
+        ("foo-1.0-1whatever-py3-none-any.whl", "foo-1.0-1whatever-py3-none-any.whl"),
+        # wheel: compressed tag sets are sorted, even when conflicting or nonsense
+        ("foo-1.0-py3.py2-none-any.whl", "foo-1.0-py2.py3-none-any.whl"),
+        ("foo-1.0-py3.py2-none.abi3.cp37-any.whl", "foo-1.0-py2.py3-abi3.cp37.none-any.whl"),
+        (
+            "foo-1.0-py3.py2-none.abi3.cp37-linux_x86_64.any.whl",
+            "foo-1.0-py2.py3-abi3.cp37.none-any.linux_x86_64.whl",
+        ),
+        # sdist: fully normalized, no changes
+        ("foo-1.0.tar.gz", "foo-1.0.tar.gz"),
+        # sdist: dist name is not case normalized
+        ("Foo-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("FOO-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("FoO-1.0.tar.gz", "foo-1.0.tar.gz"),
+        # sdist: dist name contains alternate separators, including
+        # `-` despite being forbidden by PEP 625
+        ("foo-bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
+        ("foo-bar-baz-1.0.tar.gz", "foo_bar_baz-1.0.tar.gz"),
+        ("foo--bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
+        ("foo.bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
+        ("foo..bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
+        ("foo.bar.baz-1.0.tar.gz", "foo_bar_baz-1.0.tar.gz"),
+        # sdist: dist version is not normalized
+        ("foo-1.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
+        ("foo-01.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
+    ],
+)
+def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
+    # normalization works as expected
+    assert impl._ultranormalize_dist_filename(input) == normalized
+
+    # normalization is a fixpoint, and normalized names are valid dist names
+    assert impl._ultranormalize_dist_filename(normalized) == normalized
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        # completely invalid
+        "foo",
+        # suffixes must be lowercase
+        "foo-1.0.TAR.GZ",
+        "foo-1.0-py3-none-any.WHL",
+        # wheel: invalid separator in dist name
+        "foo-bar-1.0-py3-none-any.whl",
+        "foo__bar-1.0-py3-none-any.whl",
+        # wheel: invalid version
+        "foo-charmander-py3-none-any.whl",
+        "foo-1charmander-py3-none-any.whl",
+        # sdist: invalid version
+        "foo-charmander.tar.gz",
+        "foo-1charmander.tar.gz",
+    ],
+)
+def test_ultranormalize_dist_filename_invalid(input: str) -> None:
+    with pytest.raises(ValueError):
+        impl._ultranormalize_dist_filename(input)
