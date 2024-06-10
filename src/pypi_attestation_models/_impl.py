@@ -133,12 +133,21 @@ class Attestation(BaseModel):
 
         if len(statement.subjects) != 1:
             raise VerificationError("too many subjects in statement (must be exactly one)")
-
         subject = statement.subjects[0]
+
+        if not subject.name:
+            raise VerificationError("invalid subject: missing name")
+
+        try:
+            # We always ultranormalize when signing, but other signers may not.
+            subject_name = _ultranormalize_dist_filename(subject.name)
+        except ValueError as e:
+            raise VerificationError(f"invalid subject: {str(e)}")
+
         normalized = _ultranormalize_dist_filename(dist.name)
-        if subject.name != _ultranormalize_dist_filename(dist.name):
+        if subject_name != normalized:
             raise VerificationError(
-                f"subject does not match distribution name: {subject.name} != {normalized}"
+                f"subject does not match distribution name: {subject_name} != {normalized}"
             )
 
         digest = subject.digest.root.get("sha256")
