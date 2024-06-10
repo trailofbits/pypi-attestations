@@ -35,5 +35,7 @@ jobs:
     - name: attest
       uses: actions/attest@v1
       with:
-        subject-path: ./dist/*.tar.gz ./dist/*.whl
+        subject-path: |
+          ./dist/*.tar.gz
+          ./dist/*.whl
         predicate-type: 'https://docs.pypi.org/attestations/publish/v1'
