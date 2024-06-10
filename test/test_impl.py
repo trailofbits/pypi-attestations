@@ -210,6 +210,9 @@ class TestPackaging:
             "foo-1.0-py3.py2-none.abi3.cp37-linux_x86_64.any.whl",
             "foo-1.0-py2.py3-abi3.cp37.none-any.linux_x86_64.whl",
         ),
+        # wheel: verbose compressed tag sets are re-compressed
+        ("foo-1.0-py3.py2.py3-none-any.whl", "foo-1.0-py2.py3-none-any.whl"),
+        ("foo-1.0-py3-none.none.none-any.whl", "foo-1.0-py3-none-any.whl"),
         # sdist: fully normalized, no changes
         ("foo-1.0.tar.gz", "foo-1.0.tar.gz"),
         # sdist: dist name is not case normalized
