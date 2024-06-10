@@ -6,12 +6,9 @@ on:
 name: release
 
 permissions:
-  # Used to sign the release's artifacts with sigstore-python.
-  # Used to publish to PyPI with Trusted Publishing.
+  # Trusted Publishing + attestations
   id-token: write
-
-  # Used to attach signing artifacts to the published release.
-  contents: write
+  attestations: write
 
 jobs:
   pypi:
@@ -35,8 +32,8 @@ jobs:
     - name: publish
       uses: pypa/gh-action-pypi-publish@release/v1
 
-    - name: sign
-      uses: sigstore/gh-action-sigstore-python@v2.1.1
+    - name: attest
+      uses: actions/attest@v1
       with:
-        inputs: ./dist/*.tar.gz ./dist/*.whl
-        release-signing-artifacts: true
+        subject-path: ./dist/*.tar.gz ./dist/*.whl
+        predicate-type: 'https://docs.pypi.org/attestations/publish/v1'
