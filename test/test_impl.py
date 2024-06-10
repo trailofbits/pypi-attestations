@@ -16,9 +16,16 @@ ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
 
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
 
-artifact_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl"
-bundle_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
-attestation_path = Path(__file__).parent / "assets" / "rfc8785-0.1.2-py3-none-any.whl.attestation"
+_HERE = Path(__file__).parent
+_ASSETS = _HERE / "assets"
+
+artifact_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
+bundle_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
+attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.attestation"
+
+# produced by actions/attest@v1
+gh_signed_artifact_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz"
+gh_signed_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.sigstore"
 
 
 class TestAttestation:
@@ -39,6 +46,22 @@ class TestAttestation:
         # converting back also works
         roundtripped_attestation = impl.sigstore_to_pypi(bundle)
         roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path)
+
+    def test_verify_github_attested(self) -> None:
+        verifier = Verifier.production()
+        pol = policy.AllOf(
+            [
+                policy.OIDCSourceRepositoryURI(
+                    "https://github.com/trailofbits/pypi-attestation-models"
+                ),
+                policy.OIDCIssuerV2("https://token.actions.githubusercontent.com"),
+            ]
+        )
+
+        bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
+        attestation = impl.sigstore_to_pypi(bundle)
+
+        attestation.verify(verifier, pol, gh_signed_artifact_path)
 
     def test_verify(self) -> None:
         verifier = Verifier.staging()
