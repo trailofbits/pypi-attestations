@@ -107,8 +107,12 @@ class Attestation(BaseModel):
 
         return sigstore_to_pypi(bundle)
 
-    def verify(self, verifier: Verifier, policy: VerificationPolicy, dist: Path) -> None:
+    def verify(
+        self, verifier: Verifier, policy: VerificationPolicy, dist: Path
+    ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python artifact.
+
+        Returns a tuple of the in-toto predicate type and optional deserialized JSON predicate.
 
         On failure, raises an appropriate subclass of `AttestationError`.
         """
@@ -153,6 +157,8 @@ class Attestation(BaseModel):
         digest = subject.digest.root.get("sha256")
         if digest is None or digest != expected_digest:
             raise VerificationError("subject does not match distribution digest")
+
+        return statement.predicate_type, statement.predicate
 
 
 class Envelope(BaseModel):
