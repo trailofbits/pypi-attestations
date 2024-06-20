@@ -61,7 +61,9 @@ class TestAttestation:
         bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
         attestation = impl.sigstore_to_pypi(bundle)
 
-        attestation.verify(verifier, pol, gh_signed_artifact_path)
+        predicate_type, predicate = attestation.verify(verifier, pol, gh_signed_artifact_path)
+        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
+        assert predicate == {}
 
     def test_verify(self) -> None:
         verifier = Verifier.staging()
@@ -71,7 +73,10 @@ class TestAttestation:
         )
 
         attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
-        attestation.verify(verifier, pol, artifact_path)
+        predicate_type, predicate = attestation.verify(verifier, pol, artifact_path)
+
+        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
+        assert predicate is None
 
         # convert the attestation to a bundle and verify it that way too
         bundle = impl.pypi_to_sigstore(attestation)
