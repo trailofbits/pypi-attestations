@@ -15,7 +15,9 @@ from sigstore.verify import Verifier, policy
 from pypi_attestation_models import __version__
 from pypi_attestation_models._impl import Attestation, VerificationError
 
-logging.basicConfig(format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()])
+logging.basicConfig(
+    format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()]
+)
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
@@ -33,7 +35,7 @@ def _parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="pypi-attestation-models",
-        description="TODO",
+        description="Sign, inspect or verify PEP 740 attestations generated for Python Packages",
         parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -88,7 +90,7 @@ def _parser() -> argparse.ArgumentParser:
         "--identity",
         type=str,
         required=True,
-        help="TODO",
+        help="Signer identity",
     )
 
     verify_command.add_argument(
@@ -189,7 +191,9 @@ def _sign(args: argparse.Namespace) -> None:
                 _die(args, f"Signature already exists for {file_path}")
 
             attestation = Attestation.sign(signer, file_path)
-            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
+            _logger.debug(
+                "Attestation saved for %s saved in %s", file_path, signature_path
+            )
 
             signature_path.write_text(attestation.model_dump_json())
 
@@ -222,7 +226,9 @@ def _inspect(args: argparse.Namespace) -> None:
         _logger.info(f"\tType: {decoded_statement['_type']}")
         _logger.info("\tSubject:")
         for subject in decoded_statement["subject"]:
-            _logger.info(f"\t\t{subject['name']} (digest: {subject['digest']['sha256']})")
+            _logger.info(
+                f"\t\t{subject['name']} (digest: {subject['digest']['sha256']})"
+            )
 
         _logger.info(f"\tPredicate type: {decoded_statement['predicateType']}")
         _logger.info(f"\tPredicate: {decoded_statement['predicate']}")
@@ -273,7 +279,9 @@ def _verify(args: argparse.Namespace) -> None:
         try:
             attestation.verify(verifier, pol, file_path)
         except VerificationError as verification_error:
-            _logger.error("Verification failed for %s: %s", file_path, verification_error)
+            _logger.error(
+                "Verification failed for %s: %s", file_path, verification_error
+            )
             continue
 
         _logger.info(f"OK: {attestation_path}")
