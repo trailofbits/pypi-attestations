@@ -15,15 +15,12 @@ from sigstore.verify import Verifier, policy
 from pypi_attestation_models import __version__
 from pypi_attestation_models._impl import Attestation, VerificationError
 
-logging.basicConfig(
-    format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()]
-)
+logging.basicConfig(format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()])
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
 
 def _parser() -> argparse.ArgumentParser:
-
     parent_parser = argparse.ArgumentParser(add_help=False)
 
     parent_parser.add_argument(
@@ -134,15 +131,16 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _die(args: argparse.Namespace, message: str) -> NoReturn:
-    """An `argparse` helper that fixes up the type hints on our use of
-    `ArgumentParser.error`.
+    """Handle argument parsing errors and terminate the program.
+
+    Fix up the type hints on our use of `ArgumentParser.error`.
     """
-    args._parser.error(message)
+    args._parser.error(message)  # noqa: SLF001.
     raise ValueError("unreachable")
 
 
 def get_identity_token(args: argparse.Namespace) -> IdentityToken:
-    """Generates an Identity Token
+    """Generate an Identity Token.
 
     This method uses the following order of precedence:
     - A token passed as an argument
@@ -168,10 +166,9 @@ def get_identity_token(args: argparse.Namespace) -> IdentityToken:
 
 
 def _sign(args: argparse.Namespace) -> None:
-    """Sign the files passed as argument"""
+    """Sign the files passed as argument."""
     try:
         identity = get_identity_token(args)
-        _logger.debug(f"Identity: {identity._raw_token}")
     except IdentityError as identity_error:
         _die(args, f"Failed to detect identity: {identity_error}")
 
@@ -181,7 +178,6 @@ def _sign(args: argparse.Namespace) -> None:
         signing_ctx = SigningContext.production()
 
     with signing_ctx.signer(identity, cache=True) as signer:
-
         for file_path in args.files:
             _logger.debug(f"Signing {file_path}")
 
@@ -193,9 +189,7 @@ def _sign(args: argparse.Namespace) -> None:
                 _die(args, f"Signature already exists for {file_path}")
 
             attestation = Attestation.sign(signer, file_path)
-            _logger.debug(
-                "Attestation saved for %s saved in %s", file_path, signature_path
-            )
+            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
 
             signature_path.write_text(attestation.model_dump_json())
 
@@ -228,9 +222,7 @@ def _inspect(args: argparse.Namespace) -> None:
         _logger.info(f"\tType: {decoded_statement['_type']}")
         _logger.info("\tSubject:")
         for subject in decoded_statement["subject"]:
-            _logger.info(
-                f"\t\t{subject['name']} (digest: {subject['digest']['sha256']})"
-            )
+            _logger.info(f"\t\t{subject['name']} (digest: {subject['digest']['sha256']})")
 
         _logger.info(f"\tPredicate type: {decoded_statement['predicateType']}")
         _logger.info(f"\tPredicate: {decoded_statement['predicate']}")
@@ -281,9 +273,7 @@ def _verify(args: argparse.Namespace) -> None:
         try:
             attestation.verify(verifier, pol, file_path)
         except VerificationError as verification_error:
-            _logger.error(
-                "Verification failed for %s: %s", file_path, verification_error
-            )
+            _logger.error("Verification failed for %s: %s", file_path, verification_error)
             continue
 
         _logger.info(f"OK: {attestation_path}")
@@ -300,7 +290,7 @@ def main() -> None:
 
     _logger.debug(args)
 
-    args._parser = parser
+    args._parser = parser  # noqa: SLF001.
 
     if args.subcommand == "sign":
         _sign(args)
