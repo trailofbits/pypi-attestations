@@ -14,7 +14,57 @@ A library to convert between Sigstore Bundles and [PEP 740] Attestation objects
 python -m pip install pypi-attestation-models
 ```
 
-## Usage
+## Usage as a command line tool
+
+````bash
+python -m pypi_attestation_models --help
+usage: pypi-attestation-models [-h] [-v] [-V] COMMAND ...
+
+Sign, inspect or verify PEP 740 attestations generated for Python Packages
+
+positional arguments:
+  COMMAND        The operation to perform
+    sign         Sign one or more inputs
+    verify       Verify one or more inputs
+    inspect      Inspect one or more inputs
+
+options:
+  -h, --help     show this help message and exit
+  -v, --verbose  run with additional debug logging; supply multiple times to 
+                 increase verbosity (default: 0)
+  -V, --version  show program's version number and exit
+````
+
+### Signing a package
+
+```bash
+# Generate a whl file
+make package
+python -m pypi_attestation_models sign dist/pypi_attestation_models-*.whl
+```
+
+_Note_: This will open a browser window to authenticate with the Sigstore OIDC 
+provider.
+
+### Inspecting a PEP 740 Attestation
+
+```bash
+python -m pypi_attestation_models inspect dist/pypi_attestation_models-*.whl.publish.attestation
+```
+_Warning_: Inspecting does not mean verifying. It only prints the structure of 
+the attestation.
+
+### Verifying a PEP 740 Attestation
+
+```bash
+python -m pypi_attestation_models verify --staging \
+  --identity william@yossarian.net \
+  test/assets/rfc8785-0.1.2-py3-none-any.whl
+```
+The attestation present in the test has been generated using the staging 
+environment of Sigstore and signed by William. 
+
+## Usage as a library
 
 See the full API documentation [here].
 
