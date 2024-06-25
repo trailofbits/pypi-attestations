@@ -88,9 +88,7 @@ def test_sign_command(tmp_path: Path) -> None:
     copied_artifact_attestation = Path(f"{copied_artifact}.publish.attestation")
     assert copied_artifact_attestation.is_file()
 
-    attestation = Attestation.model_validate_json(
-        copied_artifact_attestation.read_text()
-    )
+    attestation = Attestation.model_validate_json(copied_artifact_attestation.read_text())
     assert attestation.version
 
 
@@ -147,9 +145,7 @@ def test_sign_command_failures(
     assert "Failed to detect identity" in caplog.text
 
 
-def test_inspect_command(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_inspect_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     # Happy path
     run_main_with_command(["inspect", attestation_path.as_posix()])
     assert attestation_path.as_posix() in caplog.text
@@ -179,9 +175,7 @@ def test_inspect_command(
     assert "not_a_file.txt is not a file." in caplog.text
 
 
-def test_verify_command(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_verify_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     # Happy path
     run_main_with_command(
         [
