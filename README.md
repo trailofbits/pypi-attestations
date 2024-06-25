@@ -20,7 +20,7 @@ python -m pip install pypi-attestation-models
 python -m pypi_attestation_models --help
 usage: pypi-attestation-models [-h] [-v] [-V] COMMAND ...
 
-Sign, inspect or verify PEP 740 attestations generated for Python Packages
+Sign, inspect or verify PEP 740 attestations
 
 positional arguments:
   COMMAND        The operation to perform
@@ -43,8 +43,8 @@ make package
 python -m pypi_attestation_models sign dist/pypi_attestation_models-*.whl
 ```
 
-_Note_: This will open a browser window to authenticate with the Sigstore OIDC 
-provider.
+_Note_: This will open a browser window to authenticate with the Sigstore 
+OAuth flow.
 
 ### Inspecting a PEP 740 Attestation
 

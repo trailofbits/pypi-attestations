@@ -3,17 +3,22 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import typing
 from pathlib import Path
 from typing import NoReturn
 
+import sigstore.oidc
 from cryptography import x509
 from pydantic import ValidationError
-from sigstore.oidc import IdentityError, IdentityToken, Issuer, detect_credential
+from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
 
 from pypi_attestation_models import __version__
 from pypi_attestation_models._impl import Attestation, VerificationError
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logging.basicConfig(format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()])
 _logger = logging.getLogger(__name__)
@@ -28,12 +33,12 @@ def _parser() -> argparse.ArgumentParser:
         "--verbose",
         action="count",
         default=0,
-        help="run with additional debug logging; supply multiple times to increase verbosity",
+        help="Run with additional debug logging; supply multiple times to increase verbosity",
     )
 
     parser = argparse.ArgumentParser(
         prog="pypi-attestation-models",
-        description="Sign, inspect or verify PEP 740 attestations generated for Python Packages",
+        description="Sign, inspect or verify PEP 740 attestations",
         parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -54,13 +59,6 @@ def _parser() -> argparse.ArgumentParser:
 
     sign_command = subcommands.add_parser(
         name="sign", help="Sign one or more inputs", parents=[parent_parser]
-    )
-
-    sign_command.add_argument(
-        "--identity-token",
-        type=str,
-        help="Identity token to use",
-        required=False,
     )
 
     sign_command.add_argument(
@@ -130,13 +128,23 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _die(args: argparse.Namespace, message: str) -> NoReturn:
-    """Handle argument parsing errors and terminate the program.
+def _die(message: str) -> NoReturn:
+    """Handle errors and terminate the program with an error code."""
+    _logger.error(message)
+    raise SystemExit(1)
 
-    Fix up the type hints on our use of `ArgumentParser.error`.
+
+def _validate_files(files: list[Path] | Iterable[Path], should_exists: bool = True) -> None:
+    """Validate that the list of files exists or not.
+
+    This function exits the program if the condition is not met.
     """
-    args._parser.error(message)  # noqa: SLF001.
-    raise ValueError("unreachable")
+    for file_path in files:
+        if file_path.is_file() != should_exists:
+            if should_exists:
+                _die(f"{file_path} is not a file.")
+            else:
+                _die(f"{file_path} already exists.")
 
 
 def get_identity_token(args: argparse.Namespace) -> IdentityToken:
@@ -147,21 +155,13 @@ def get_identity_token(args: argparse.Namespace) -> IdentityToken:
     - An ambient credential
     - An OAuth-2 flow
     """
-    # First, check if a token was supplied
-    if args.identity_token:
-        return IdentityToken(args.identity_token)
-
     # Ambient credential detection
-    oidc_token = detect_credential()
+    oidc_token = sigstore.oidc.detect_credential()
     if oidc_token is not None:
         return IdentityToken(oidc_token)
 
-    # Finally, OAuth-2 Flow
-    if args.staging:
-        issuer = Issuer.staging()
-    else:
-        issuer = Issuer.production()
-
+    # Fallback to interactive OAuth-2 Flow
+    issuer: Issuer = Issuer.staging() if args.staging else Issuer.production()
     return issuer.identity_token()
 
 
@@ -170,25 +170,24 @@ def _sign(args: argparse.Namespace) -> None:
     try:
         identity = get_identity_token(args)
     except IdentityError as identity_error:
-        _die(args, f"Failed to detect identity: {identity_error}")
+        _die(f"Failed to detect identity: {identity_error}")
 
-    if args.staging:
-        signing_ctx = SigningContext.staging()
-    else:
-        signing_ctx = SigningContext.production()
+    signing_ctx = SigningContext.staging() if args.staging else SigningContext.production()
+
+    # Validates that every file we want to sign exist but none of their attestations
+    _validate_files(args.files, should_exists=True)
+    _validate_files(
+        (Path(f"{file_path}.publish.attestation") for file_path in args.files),
+        should_exists=False,
+    )
 
     with signing_ctx.signer(identity, cache=True) as signer:
         for file_path in args.files:
             _logger.debug(f"Signing {file_path}")
 
-            if not file_path.is_file():
-                _die(args, f"{file_path} is not a file.")
-
             signature_path = Path(f"{file_path}.publish.attestation")
-            if signature_path.is_file():
-                _die(args, f"Signature already exists for {file_path}")
-
             attestation = Attestation.sign(signer, file_path)
+
             _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
 
             signature_path.write_text(attestation.model_dump_json())
@@ -199,14 +198,12 @@ def _inspect(args: argparse.Namespace) -> None:
 
     Warning: The information displayed from the attestations are not verified.
     """
+    _validate_files(args.files, should_exists=True)
     for file_path in args.files:
-        if not file_path.is_file():
-            _die(args, f"{file_path} is not a file.")
-
         try:
             attestation = Attestation.model_validate_json(file_path.read_text())
         except ValidationError as validation_error:
-            _die(args, f"Invalid attestation ({file_path}): {validation_error}")
+            _die(f"Invalid attestation ({file_path}): {validation_error}")
 
         _logger.info(
             "Warning: The information displayed below are not verified, they are only "
@@ -228,7 +225,7 @@ def _inspect(args: argparse.Namespace) -> None:
         _logger.info(f"\tPredicate: {decoded_statement['predicate']}")
 
         if args.dump_bytes:
-            _logger.info(f"Signature: {attestation.envelope.signature}")
+            _logger.info(f"Signature: {attestation.envelope.signature!r}")
 
         # Verification Material
         verification_material = attestation.verification_material
@@ -250,25 +247,22 @@ def _inspect(args: argparse.Namespace) -> None:
 
 def _verify(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
-    if args.staging:
-        verifier = Verifier.staging()
-    else:
-        verifier = Verifier.production()
-
+    verifier: Verifier = Verifier.staging() if args.staging else Verifier.production()
     pol = policy.Identity(identity=args.identity)
 
+    # Validate that both the attestations and files exists
+    _validate_files(args.files, should_exists=True)
+    _validate_files(
+        (Path(f"{file_path}.publish.attestation") for file_path in args.files),
+        should_exists=True,
+    )
+
     for file_path in args.files:
-        if not file_path.is_file():
-            _die(args, f"{file_path} is not a file.")
-
         attestation_path = Path(f"{file_path}.publish.attestation")
-        if not attestation_path.is_file():
-            _die(args, f"Missing attestation file for {file_path}")
-
         try:
             attestation = Attestation.model_validate_json(attestation_path.read_text())
         except ValidationError as validation_error:
-            _die(args, f"Invalid attestation ({file_path}): {validation_error}")
+            _die(f"Invalid attestation ({file_path}): {validation_error}")
 
         try:
             attestation.verify(verifier, pol, file_path)
@@ -298,5 +292,3 @@ def main() -> None:
         _verify(args)
     elif args.subcommand == "inspect":
         _inspect(args)
-    else:
-        _die(args, f"Unknown subcommand: {args.subcommand}")
