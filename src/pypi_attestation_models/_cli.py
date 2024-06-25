@@ -134,14 +134,14 @@ def _die(message: str) -> NoReturn:
     raise SystemExit(1)
 
 
-def _validate_files(files: list[Path] | Iterable[Path], should_exists: bool = True) -> None:
+def _validate_files(files: Iterable[Path], should_exist: bool = True) -> None:
     """Validate that the list of files exists or not.
 
     This function exits the program if the condition is not met.
     """
     for file_path in files:
-        if file_path.is_file() != should_exists:
-            if should_exists:
+        if file_path.is_file() != should_exist:
+            if should_exist:
                 _die(f"{file_path} is not a file.")
             else:
                 _die(f"{file_path} already exists.")
@@ -151,7 +151,6 @@ def get_identity_token(args: argparse.Namespace) -> IdentityToken:
     """Generate an Identity Token.
 
     This method uses the following order of precedence:
-    - A token passed as an argument
     - An ambient credential
     - An OAuth-2 flow
     """
@@ -175,10 +174,10 @@ def _sign(args: argparse.Namespace) -> None:
     signing_ctx = SigningContext.staging() if args.staging else SigningContext.production()
 
     # Validates that every file we want to sign exist but none of their attestations
-    _validate_files(args.files, should_exists=True)
+    _validate_files(args.files, should_exist=True)
     _validate_files(
         (Path(f"{file_path}.publish.attestation") for file_path in args.files),
-        should_exists=False,
+        should_exist=False,
     )
 
     with signing_ctx.signer(identity, cache=True) as signer:
@@ -198,7 +197,7 @@ def _inspect(args: argparse.Namespace) -> None:
 
     Warning: The information displayed from the attestations are not verified.
     """
-    _validate_files(args.files, should_exists=True)
+    _validate_files(args.files, should_exist=True)
     for file_path in args.files:
         try:
             attestation = Attestation.model_validate_json(file_path.read_text())
@@ -251,10 +250,10 @@ def _verify(args: argparse.Namespace) -> None:
     pol = policy.Identity(identity=args.identity)
 
     # Validate that both the attestations and files exists
-    _validate_files(args.files, should_exists=True)
+    _validate_files(args.files, should_exist=True)
     _validate_files(
         (Path(f"{file_path}.publish.attestation") for file_path in args.files),
-        should_exists=True,
+        should_exist=True,
     )
 
     for file_path in args.files:
