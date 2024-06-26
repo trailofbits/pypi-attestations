@@ -13,8 +13,7 @@ from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
 
-from pypi_attestation_models import __version__
-from pypi_attestation_models._impl import Attestation, VerificationError
+from pypi_attestation_models import Attestation, AttestationError, VerificationError, __version__
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -185,7 +184,10 @@ def _sign(args: argparse.Namespace) -> None:
             _logger.debug(f"Signing {file_path}")
 
             signature_path = Path(f"{file_path}.publish.attestation")
-            attestation = Attestation.sign(signer, file_path)
+            try:
+                attestation = Attestation.sign(signer, file_path)
+            except AttestationError as e:
+                _die(f"Failed to sign: {e}")
 
             _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
 
