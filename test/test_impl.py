@@ -47,6 +47,16 @@ class TestAttestation:
         roundtripped_attestation = impl.sigstore_to_pypi(bundle)
         roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path)
 
+    def test_sign_invalid_dist_filename(self, tmp_path: Path) -> None:
+        bad_dist = tmp_path / "invalid-name.tar.gz"
+        bad_dist.write_bytes(b"junk")
+
+        with pytest.raises(
+            impl.AttestationError,
+            match=r"Invalid sdist filename \(invalid version\): invalid-name\.tar\.gz",
+        ):
+            impl.Attestation.sign(pretend.stub(), bad_dist)
+
     def test_verify_github_attested(self) -> None:
         verifier = Verifier.production()
         pol = policy.AllOf(
