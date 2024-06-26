@@ -49,7 +49,10 @@ name = "pypi_attestation_models"
 
 [tool.coverage.run]
 # don't attempt code coverage for the CLI entrypoints
-omit = ["src/pypi_attestation_models/_cli.py"]
+omit = [
+    "src/pypi_attestation_models/_cli.py",
+    "src/pypi_attestation_models/__main__.py"
+]
 
 [tool.mypy]
 mypy_path = "src"
@@ -93,6 +96,11 @@ ignore = ["ANN101", "ANN102", "D203", "D213", "COM812", "ISC001"]
 [tool.interrogate]
 # don't enforce documentation coverage for packaging, testing, the virtual
 # environment, or the CLI (which is documented separately).
-exclude = ["env", "test", "src/pypi_attestation_models/_cli.py"]
+exclude = [
+    "env",
+    "test",
+    "src/pypi_attestation_models/_cli.py",
+    "src/pypi_attestation_models/__main__.py"
+]
 ignore-semiprivate = true
 fail-under = 100

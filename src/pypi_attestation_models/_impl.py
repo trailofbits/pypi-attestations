@@ -84,18 +84,26 @@ class Attestation(BaseModel):
 
     @classmethod
     def sign(cls, signer: Signer, dist: Path) -> Attestation:
-        """Create an envelope, with signature, from a distribution file."""
+        """Create an envelope, with signature, from a distribution file.
+
+        On failure, raises `AttestationError` or an appropriate subclass.
+        """
         with dist.open(mode="rb", buffering=0) as io:
             # Replace this with `hashlib.file_digest()` once
             # our minimum supported Python is >=3.11
             digest = _sha256_streaming(io).hex()
+
+        try:
+            name = _ultranormalize_dist_filename(dist.name)
+        except ValueError as e:
+            raise AttestationError(str(e))
 
         stmt = (
             _StatementBuilder()
             .subjects(
                 [
                     _Subject(
-                        name=_ultranormalize_dist_filename(dist.name),
+                        name=name,
                         digest=_DigestSet(root={"sha256": digest}),
                     )
                 ]
