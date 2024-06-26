@@ -5,7 +5,6 @@ import json
 import logging
 import typing
 from pathlib import Path
-from typing import NoReturn
 
 import sigstore.oidc
 from cryptography import x509
@@ -19,6 +18,7 @@ from pypi_attestation_models._impl import Attestation, VerificationError
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import NoReturn
 
 logging.basicConfig(format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()])
 _logger = logging.getLogger(__name__)
