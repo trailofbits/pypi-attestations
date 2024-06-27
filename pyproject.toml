@@ -3,7 +3,7 @@ requires = ["flit_core >=3.5,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "pypi-attestation-models"
+name = "pypi-attestations"
 dynamic = ["version"]
 description = "A library to convert between Sigstore Bundles and PEP-740 Attestation objects"
 readme = "README.md"
@@ -35,28 +35,28 @@ lint = [
     "types-toml",
     "interrogate",
 ]
-dev = ["pypi-attestation-models[doc,test,lint]", "twine", "wheel", "build"]
+dev = ["pypi-attestations[doc,test,lint]", "twine", "wheel", "build"]
 
 
 [project.urls]
-Homepage = "https://pypi.org/project/pypi-attestation-models"
-Documentation = "https://trailofbits.github.io/pypi-attestation-models/"
-Issues = "https://github.com/trailofbits/pypi-attestation-models/issues"
-Source = "https://github.com/trailofbits/pypi-attestation-models"
+Homepage = "https://pypi.org/project/pypi-attestations"
+Documentation = "https://trailofbits.github.io/pypi-attestations/"
+Issues = "https://github.com/trailofbits/pypi-attestations/issues"
+Source = "https://github.com/trailofbits/pypi-attestations"
 
 [tool.flit.module]
-name = "pypi_attestation_models"
+name = "pypi_attestations"
 
 [tool.coverage.run]
 # don't attempt code coverage for the CLI entrypoints
 omit = [
-    "src/pypi_attestation_models/_cli.py",
-    "src/pypi_attestation_models/__main__.py"
+    "src/pypi_attestations/_cli.py",
+    "src/pypi_attestations/__main__.py"
 ]
 
 [tool.mypy]
 mypy_path = "src"
-packages = "pypi_attestation_models"
+packages = "pypi_attestations"
 allow_redefinition = true
 check_untyped_defs = true
 disallow_incomplete_defs = true
@@ -99,8 +99,8 @@ ignore = ["ANN101", "ANN102", "D203", "D213", "COM812", "ISC001"]
 exclude = [
     "env",
     "test",
-    "src/pypi_attestation_models/_cli.py",
-    "src/pypi_attestation_models/__main__.py"
+    "src/pypi_attestations/_cli.py",
+    "src/pypi_attestations/__main__.py"
 ]
 ignore-semiprivate = true
 fail-under = 100
