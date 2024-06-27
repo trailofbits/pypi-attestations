@@ -113,7 +113,7 @@ class Attestation(BaseModel):
         )
         bundle = signer.sign_dsse(stmt)
 
-        return sigstore_to_pypi(bundle)
+        return Attestation.from_bundle(bundle)
 
     def verify(
         self, verifier: Verifier, policy: VerificationPolicy, dist: Path
@@ -129,7 +129,7 @@ class Attestation(BaseModel):
             # our minimum supported Python is >=3.11
             expected_digest = _sha256_streaming(io).hex()
 
-        bundle = pypi_to_sigstore(self)
+        bundle = self.to_bundle()
         try:
             type_, payload = verifier.verify_dsse(bundle, policy)
         except sigstore.errors.VerificationError as err:
@@ -168,6 +168,63 @@ class Attestation(BaseModel):
 
         return statement.predicate_type, statement.predicate
 
+    def to_bundle(self) -> Bundle:
+        """Convert a PyPI attestation object as defined in PEP 740 into a Sigstore Bundle."""
+        cert_bytes = self.verification_material.certificate
+        statement = self.envelope.statement
+        signature = self.envelope.signature
+
+        evp = DsseEnvelope(
+            _Envelope(
+                payload=statement,
+                payload_type=DsseEnvelope._TYPE,  # noqa: SLF001
+                signatures=[_Signature(sig=signature)],
+            )
+        )
+
+        tlog_entry = self.verification_material.transparency_entries[0]
+        try:
+            certificate = x509.load_der_x509_certificate(cert_bytes)
+        except ValueError as err:
+            raise ConversionError("invalid X.509 certificate") from err
+
+        try:
+            log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
+        except (ValidationError, sigstore.errors.Error) as err:
+            raise ConversionError("invalid transparency log entry") from err
+
+        return Bundle._from_parts(  # noqa: SLF001
+            cert=certificate,
+            content=evp,
+            log_entry=log_entry,
+        )
+
+    @classmethod
+    def from_bundle(cls, sigstore_bundle: Bundle) -> Attestation:
+        """Convert a Sigstore Bundle into a PyPI attestation as defined in PEP 740."""
+        certificate = sigstore_bundle.signing_certificate.public_bytes(
+            encoding=serialization.Encoding.DER
+        )
+
+        envelope = sigstore_bundle._inner.dsse_envelope  # noqa: SLF001
+
+        if len(envelope.signatures) != 1:
+            raise ConversionError(f"expected exactly one signature, got {len(envelope.signatures)}")
+
+        return cls(
+            version=1,
+            verification_material=VerificationMaterial(
+                certificate=base64.b64encode(certificate),
+                transparency_entries=[
+                    TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())  # noqa: SLF001
+                ],
+            ),
+            envelope=Envelope(
+                statement=base64.b64encode(envelope.payload),
+                signature=base64.b64encode(envelope.signatures[0].sig),
+            ),
+        )
+
 
 class Envelope(BaseModel):
     """The attestation envelope, containing the attested-for payload and its signature."""
@@ -184,62 +241,6 @@ class Envelope(BaseModel):
     """
     A signature for the above statement, encoded as base64.
     """
-
-
-def sigstore_to_pypi(sigstore_bundle: Bundle) -> Attestation:
-    """Convert a Sigstore Bundle into a PyPI attestation as defined in PEP 740."""
-    certificate = sigstore_bundle.signing_certificate.public_bytes(
-        encoding=serialization.Encoding.DER
-    )
-
-    envelope = sigstore_bundle._inner.dsse_envelope  # noqa: SLF001
-
-    if len(envelope.signatures) != 1:
-        raise ConversionError(f"expected exactly one signature, got {len(envelope.signatures)}")
-
-    return Attestation(
-        version=1,
-        verification_material=VerificationMaterial(
-            certificate=base64.b64encode(certificate),
-            transparency_entries=[TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())],  # noqa: SLF001
-        ),
-        envelope=Envelope(
-            statement=base64.b64encode(envelope.payload),
-            signature=base64.b64encode(envelope.signatures[0].sig),
-        ),
-    )
-
-
-def pypi_to_sigstore(pypi_attestation: Attestation) -> Bundle:
-    """Convert a PyPI attestation object as defined in PEP 740 into a Sigstore Bundle."""
-    cert_bytes = pypi_attestation.verification_material.certificate
-    statement = pypi_attestation.envelope.statement
-    signature = pypi_attestation.envelope.signature
-
-    evp = DsseEnvelope(
-        _Envelope(
-            payload=statement,
-            payload_type=DsseEnvelope._TYPE,  # noqa: SLF001
-            signatures=[_Signature(sig=signature)],
-        )
-    )
-
-    tlog_entry = pypi_attestation.verification_material.transparency_entries[0]
-    try:
-        certificate = x509.load_der_x509_certificate(cert_bytes)
-    except ValueError as err:
-        raise ConversionError("invalid X.509 certificate") from err
-
-    try:
-        log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
-    except (ValidationError, sigstore.errors.Error) as err:
-        raise ConversionError("invalid transparency log entry") from err
-
-    return Bundle._from_parts(  # noqa: SLF001
-        cert=certificate,
-        content=evp,
-        log_entry=log_entry,
-    )
 
 
 def _ultranormalize_dist_filename(dist: str) -> str:

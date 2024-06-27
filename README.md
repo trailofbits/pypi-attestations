@@ -76,7 +76,7 @@ Use these APIs to create a PEP 740-compliant `Attestation` object by signing a P
 ```python
 from pathlib import Path
 
-from pypi_attestation_models import Attestation, AttestationPayload
+from pypi_attestation_models import Attestation
 from sigstore.oidc import Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
@@ -88,7 +88,7 @@ issuer = Issuer.production()
 identity_token = issuer.identity_token()
 signing_ctx = SigningContext.production()
 with signing_ctx.signer(identity_token, cache=True) as signer:
-    attestation = AttestationPayload.from_dist(artifact_path).sign(signer)
+    attestation = Attestation.sign(signer, artifact_path)
 
 print(attestation.model_dump_json())
 
@@ -102,25 +102,25 @@ attestation.verify(verifier, policy, attestation_path)
 
 ### Low-level model conversions
 These conversions assume that any Sigstore Bundle used as an input was created
-by signing an `AttestationPayload` object.
+by signing a distribution file.
+
 ```python
 from pathlib import Path
-from pypi_attestation_models import pypi_to_sigstore, sigstore_to_pypi, Attestation
+from pypi_attestation_models import Attestation
 from sigstore.models import Bundle
 
 # Sigstore Bundle -> PEP 740 Attestation object
 bundle_path = Path("test_package-0.0.1-py3-none-any.whl.sigstore")
 with bundle_path.open("rb") as f:
     sigstore_bundle = Bundle.from_json(f.read())
-attestation_object = sigstore_to_pypi(sigstore_bundle)
+attestation_object = Attestation.from_bundle(sigstore_bundle)
 print(attestation_object.model_dump_json())
-
 
 # PEP 740 Attestation object -> Sigstore Bundle
 attestation_path = Path("attestation.json")
 with attestation_path.open("rb") as f:
     attestation = Attestation.model_validate_json(f.read())
-bundle = pypi_to_sigstore(attestation)
+bundle = attestation.to_bundle()
 print(bundle.to_json())
 ```
 
