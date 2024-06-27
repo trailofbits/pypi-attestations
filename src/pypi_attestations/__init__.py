@@ -10,8 +10,6 @@ from ._impl import (
     TransparencyLogEntry,
     VerificationError,
     VerificationMaterial,
-    pypi_to_sigstore,
-    sigstore_to_pypi,
 )
 
 __all__ = [
@@ -22,6 +20,4 @@ __all__ = [
     "TransparencyLogEntry",
     "VerificationError",
     "VerificationMaterial",
-    "pypi_to_sigstore",
-    "sigstore_to_pypi",
 ]
