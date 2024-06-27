@@ -40,11 +40,11 @@ class TestAttestation:
         attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path)
 
         # converting to a bundle and verifying as a bundle also works
-        bundle = impl.pypi_to_sigstore(attestation)
+        bundle = attestation.to_bundle()
         verifier.verify_dsse(bundle, policy.UnsafeNoOp())
 
         # converting back also works
-        roundtripped_attestation = impl.sigstore_to_pypi(bundle)
+        roundtripped_attestation = impl.Attestation.from_bundle(bundle)
         roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path)
 
     def test_sign_invalid_dist_filename(self, tmp_path: Path) -> None:
@@ -69,7 +69,7 @@ class TestAttestation:
         )
 
         bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
-        attestation = impl.sigstore_to_pypi(bundle)
+        attestation = impl.Attestation.from_bundle(bundle)
 
         predicate_type, predicate = attestation.verify(verifier, pol, gh_signed_artifact_path)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
@@ -89,7 +89,7 @@ class TestAttestation:
         assert predicate is None
 
         # convert the attestation to a bundle and verify it that way too
-        bundle = impl.pypi_to_sigstore(attestation)
+        bundle = attestation.to_bundle()
         verifier.verify_dsse(bundle, policy.UnsafeNoOp())
 
     def test_verify_digest_mismatch(self, tmp_path: Path) -> None:
@@ -178,7 +178,10 @@ class TestAttestation:
 
         verifier = pretend.stub(
             verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: ("application/vnd.in-toto+json", statement.encode())
+                lambda bundle, policy: (
+                    "application/vnd.in-toto+json",
+                    statement.encode(),
+                )
             )
         )
         pol = pretend.stub()
@@ -203,7 +206,10 @@ class TestAttestation:
 
         verifier = pretend.stub(
             verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: ("application/vnd.in-toto+json", statement.encode())
+                lambda bundle, policy: (
+                    "application/vnd.in-toto+json",
+                    statement.encode(),
+                )
             )
         )
         pol = pretend.stub()
@@ -219,7 +225,8 @@ class TestAttestation:
             .subjects(
                 [
                     _Subject(
-                        name="foo-bar-invalid-wheel.whl", digest=_DigestSet(root={"sha256": "abcd"})
+                        name="foo-bar-invalid-wheel.whl",
+                        digest=_DigestSet(root={"sha256": "abcd"}),
                     ),
                 ]
             )
@@ -230,7 +237,10 @@ class TestAttestation:
 
         verifier = pretend.stub(
             verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: ("application/vnd.in-toto+json", statement.encode())
+                lambda bundle, policy: (
+                    "application/vnd.in-toto+json",
+                    statement.encode(),
+                )
             )
         )
         pol = pretend.stub()
@@ -241,28 +251,28 @@ class TestAttestation:
             attestation.verify(verifier, pol, artifact_path)
 
 
-def test_sigstore_to_pypi_missing_signatures() -> None:
+def test_from_bundle_missing_signatures() -> None:
     bundle = Bundle.from_json(bundle_path.read_bytes())
     bundle._inner.dsse_envelope.signatures = []  # noqa: SLF001
 
     with pytest.raises(impl.ConversionError, match="expected exactly one signature, got 0"):
-        impl.sigstore_to_pypi(bundle)
+        impl.Attestation.from_bundle(bundle)
 
 
-def test_pypi_to_sigstore_invalid_cert() -> None:
+def test_to_bundle_invalid_cert() -> None:
     attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
     attestation.verification_material.certificate = b"foo"
 
     with pytest.raises(impl.ConversionError, match="invalid X.509 certificate"):
-        impl.pypi_to_sigstore(attestation)
+        attestation.to_bundle()
 
 
-def test_pypi_to_sigstore_invalid_tlog_entry() -> None:
+def test_to_bundle_invalid_tlog_entry() -> None:
     attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
     attestation.verification_material.transparency_entries[0].clear()
 
     with pytest.raises(impl.ConversionError, match="invalid transparency log entry"):
-        impl.pypi_to_sigstore(attestation)
+        attestation.to_bundle()
 
 
 class TestPackaging:
@@ -295,7 +305,10 @@ class TestPackaging:
         ("foo-1.0-1whatever-py3-none-any.whl", "foo-1.0-1whatever-py3-none-any.whl"),
         # wheel: compressed tag sets are sorted, even when conflicting or nonsense
         ("foo-1.0-py3.py2-none-any.whl", "foo-1.0-py2.py3-none-any.whl"),
-        ("foo-1.0-py3.py2-none.abi3.cp37-any.whl", "foo-1.0-py2.py3-abi3.cp37.none-any.whl"),
+        (
+            "foo-1.0-py3.py2-none.abi3.cp37-any.whl",
+            "foo-1.0-py2.py3-abi3.cp37.none-any.whl",
+        ),
         (
             "foo-1.0-py3.py2-none.abi3.cp37-linux_x86_64.any.whl",
             "foo-1.0-py2.py3-abi3.cp37.none-any.linux_x86_64.whl",
