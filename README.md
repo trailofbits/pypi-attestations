@@ -1,4 +1,4 @@
-# PyPI Attestation Models
+# pypi-attestations
 
 <!--- BADGES: START --->
 [![CI](https://github.com/trailofbits/pypi-attestation-models/actions/workflows/tests.yml/badge.svg)](https://github.com/trailofbits/pypi-attestation-models/actions/workflows/tests.yml)
@@ -6,7 +6,8 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/python:pypi-attestation-models.svg)](https://repology.org/project/python:pypi-attestation-models/versions)
 <!--- BADGES: END --->
 
-A library to convert between Sigstore Bundles and [PEP 740] Attestation objects
+A library to generate and convert between Sigstore Bundles and [PEP 740]
+Attestation objects.
 
 ## Installation
 

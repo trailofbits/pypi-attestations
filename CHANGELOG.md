@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The name of this project is now `pypi-attestations`, renamed from
+  `pypi-attestion-models` ([#25](https://github.com/trailofbits/pypi-attestations/pull/25))
+
 ## [0.0.2] - 2024-05-16
 
 ### Changed
