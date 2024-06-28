@@ -1,9 +1,9 @@
 # pypi-attestations
 
 <!--- BADGES: START --->
-[![CI](https://github.com/trailofbits/pypi-attestation-models/actions/workflows/tests.yml/badge.svg)](https://github.com/trailofbits/pypi-attestation-models/actions/workflows/tests.yml)
-[![PyPI version](https://badge.fury.io/py/pypi-attestation-models.svg)](https://pypi.org/project/pypi-attestation-models)
-[![Packaging status](https://repology.org/badge/tiny-repos/python:pypi-attestation-models.svg)](https://repology.org/project/python:pypi-attestation-models/versions)
+[![CI](https://github.com/trailofbits/pypi-attestations/actions/workflows/tests.yml/badge.svg)](https://github.com/trailofbits/pypi-attestations/actions/workflows/tests.yml)
+[![PyPI version](https://badge.fury.io/py/pypi-attestations.svg)](https://pypi.org/project/pypi-attestations)
+[![Packaging status](https://repology.org/badge/tiny-repos/python:pypi-attestations.svg)](https://repology.org/project/python:pypi-attestations/versions)
 <!--- BADGES: END --->
 
 A library to generate and convert between Sigstore Bundles and [PEP 740]
@@ -12,7 +12,7 @@ Attestation objects.
 ## Installation
 
 ```bash
-python -m pip install pypi-attestation-models
+python -m pip install pypi-attestations
 ```
 
 ## Usage as a command line tool
@@ -127,4 +127,4 @@ print(bundle.to_json())
 
 [PEP 740]: https://peps.python.org/pep-0740/
 
-[here]: https://trailofbits.github.io/pypi-attestation-models
+[here]: https://trailofbits.github.io/pypi-attestations
