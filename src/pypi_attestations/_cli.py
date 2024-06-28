@@ -13,7 +13,7 @@ from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
 
-from pypi_attestation_models import Attestation, AttestationError, VerificationError, __version__
+from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,7 +36,7 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
-        prog="pypi-attestation-models",
+        prog="python -m pypi_attestations",
         description="Sign, inspect or verify PEP 740 attestations",
         parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -46,7 +46,7 @@ def _parser() -> argparse.ArgumentParser:
         "-V",
         "--version",
         action="version",
-        version=f"pypi-attestation-models {__version__}",
+        version=f"pypi-attestations {__version__}",
     )
 
     subcommands = parser.add_subparsers(

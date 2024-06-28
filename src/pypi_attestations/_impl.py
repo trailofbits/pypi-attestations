@@ -1,4 +1,4 @@
-"""Internal implementation module for `pypi-attestation-models`.
+"""Internal implementation module for `pypi-attestations`.
 
 This module is NOT a public API, and is not considered stable.
 """

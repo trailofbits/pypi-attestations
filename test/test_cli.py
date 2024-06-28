@@ -8,16 +8,16 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pypi_attestation_models._cli
+import pypi_attestations._cli
 import pytest
 import sigstore.oidc
-from pypi_attestation_models._cli import (
+from pypi_attestations._cli import (
     _logger,
     _validate_files,
     get_identity_token,
     main,
 )
-from pypi_attestation_models._impl import Attestation
+from pypi_attestations._impl import Attestation
 from sigstore.oidc import IdentityError
 
 ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
@@ -41,7 +41,7 @@ def test_main_verbose_level(monkeypatch: pytest.MonkeyPatch) -> None:
     def default_sign(_: argparse.Namespace) -> None:
         return
 
-    monkeypatch.setattr(pypi_attestation_models._cli, "_sign", default_sign)
+    monkeypatch.setattr(pypi_attestations._cli, "_sign", default_sign)
 
     run_main_with_command(["sign", "-v", ""])
     assert _logger.level == logging.DEBUG

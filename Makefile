@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-PY_IMPORT = pypi_attestation_models
+PY_IMPORT = pypi_attestations
 
 ALL_PY_SRCS := $(shell find src -name '*.py') \
 	$(shell find test -name '*.py')

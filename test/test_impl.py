@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import pretend
-import pypi_attestation_models._impl as impl
+import pypi_attestations._impl as impl
 import pytest
 from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
 from sigstore.models import Bundle
