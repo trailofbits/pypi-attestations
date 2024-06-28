@@ -36,7 +36,7 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
-        prog="pypi-attestations",
+        prog="python -m pypi_attestations",
         description="Sign, inspect or verify PEP 740 attestations",
         parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
