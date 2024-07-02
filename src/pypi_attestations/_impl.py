@@ -100,7 +100,7 @@ class Attestation(BaseModel):
                 # Replace this with `hashlib.file_digest()` once
                 # our minimum supported Python is >=3.11
                 digest = _sha256_streaming(io).hex()
-        except (PermissionError, FileNotFoundError) as e:
+        except OSError as e:
             raise AttestationError(str(e))
 
         try:
