@@ -93,7 +93,6 @@ class TestAttestation:
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def in_validity_period(_: IdentityToken) -> bool:
-            # wrong type here to have a validation error
             return False
 
         monkeypatch.setattr(IdentityToken, "in_validity_period", in_validity_period)
@@ -107,6 +106,7 @@ class TestAttestation:
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def get_bundle(*_) -> Bundle:  # noqa: ANN002
+            # Duplicate the signature to trigger a Conversion error
             bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
             bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
             return bundle
