@@ -6,6 +6,7 @@ from pathlib import Path
 import pretend
 import pypi_attestations._impl as impl
 import pytest
+import sigstore
 from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -56,6 +57,67 @@ class TestAttestation:
             match=r"Invalid sdist filename \(invalid version\): invalid-name\.tar\.gz",
         ):
             impl.Attestation.sign(pretend.stub(), bad_dist)
+
+    def test_sign_raises_attestation_exception(
+        self, id_token: IdentityToken, tmp_path: Path
+    ) -> None:
+        non_existing_file = tmp_path / "invalid-name.tar.gz"
+        with pytest.raises(impl.AttestationError, match="No such file"):
+            impl.Attestation.sign(pretend.stub(), non_existing_file)
+
+        bad_wheel_filename = tmp_path / "invalid-name.whl"
+        bad_wheel_filename.write_bytes(b"junk")
+
+        with pytest.raises(impl.AttestationError, match="Invalid wheel filename"):
+            impl.Attestation.sign(pretend.stub(), bad_wheel_filename)
+
+        bad_sdist_filename = tmp_path / "invalid_name.tar.gz"
+        bad_sdist_filename.write_bytes(b"junk")
+
+        with pytest.raises(impl.AttestationError, match="Invalid sdist filename"):
+            impl.Attestation.sign(pretend.stub(), bad_sdist_filename)
+
+    def test_wrong_predicate_raises_exception(
+        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def dummy_predicate(self_: _StatementBuilder, _: str) -> _StatementBuilder:
+            # wrong type here to have a validation error
+            self_._predicate_type = False
+            return self_
+
+        monkeypatch.setattr(sigstore.dsse._StatementBuilder, "predicate_type", dummy_predicate)
+        with pytest.raises(impl.AttestationError, match="invalid statement"):
+            impl.Attestation.sign(pretend.stub(), artifact_path)
+
+    def test_expired_certificate(
+        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def in_validity_period(_: IdentityToken) -> bool:
+            # wrong type here to have a validation error
+            return False
+
+        monkeypatch.setattr(IdentityToken, "in_validity_period", in_validity_period)
+
+        sign_ctx = SigningContext.staging()
+        with sign_ctx.signer(id_token, cache=False) as signer:
+            with pytest.raises(impl.AttestationError):
+                impl.Attestation.sign(signer, artifact_path)
+
+    def test_multiple_signatures(
+        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def get_bundle(*_) -> Bundle:  # noqa: ANN002
+            bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
+            bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
+            return bundle
+
+        monkeypatch.setattr(sigstore.sign.Signer, "sign_dsse", get_bundle)
+
+        sign_ctx = SigningContext.staging()
+
+        with pytest.raises(impl.AttestationError):
+            with sign_ctx.signer(id_token) as signer:
+                impl.Attestation.sign(signer, artifact_path)
 
     def test_verify_github_attested(self) -> None:
         verifier = Verifier.production()
