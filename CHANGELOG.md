@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `Attestation.sign` now only returns `AttestationError` when failing to sign a distribution file ([#28](https://github.com/trailofbits/pypi-attestations/pull/28))
+
 ## [0.0.6]
 
 ### Added

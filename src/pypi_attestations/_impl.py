@@ -12,13 +12,20 @@ import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from packaging.utils import parse_sdist_filename, parse_wheel_filename
+from packaging.utils import (
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 from pydantic import Base64Bytes, BaseModel
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
+from sigstore.dsse import Error as DsseError
 from sigstore.dsse import _DigestSet, _Statement, _StatementBuilder, _Subject
 from sigstore.models import Bundle, LogEntry
+from sigstore.sign import ExpiredCertificate, ExpiredIdentity
 from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
 from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
@@ -86,34 +93,47 @@ class Attestation(BaseModel):
     def sign(cls, signer: Signer, dist: Path) -> Attestation:
         """Create an envelope, with signature, from a distribution file.
 
-        On failure, raises `AttestationError` or an appropriate subclass.
+        On failure, raises `AttestationError`.
         """
-        with dist.open(mode="rb", buffering=0) as io:
-            # Replace this with `hashlib.file_digest()` once
-            # our minimum supported Python is >=3.11
-            digest = _sha256_streaming(io).hex()
+        try:
+            with dist.open(mode="rb", buffering=0) as io:
+                # Replace this with `hashlib.file_digest()` once
+                # our minimum supported Python is >=3.11
+                digest = _sha256_streaming(io).hex()
+        except OSError as e:
+            raise AttestationError(str(e))
 
         try:
             name = _ultranormalize_dist_filename(dist.name)
-        except ValueError as e:
+        except (ValueError, InvalidWheelFilename, InvalidSdistFilename) as e:
             raise AttestationError(str(e))
 
-        stmt = (
-            _StatementBuilder()
-            .subjects(
-                [
-                    _Subject(
-                        name=name,
-                        digest=_DigestSet(root={"sha256": digest}),
-                    )
-                ]
+        try:
+            stmt = (
+                _StatementBuilder()
+                .subjects(
+                    [
+                        _Subject(
+                            name=name,
+                            digest=_DigestSet(root={"sha256": digest}),
+                        )
+                    ]
+                )
+                .predicate_type("https://docs.pypi.org/attestations/publish/v1")
+                .build()
             )
-            .predicate_type("https://docs.pypi.org/attestations/publish/v1")
-            .build()
-        )
-        bundle = signer.sign_dsse(stmt)
+        except DsseError as e:
+            raise AttestationError(str(e))
 
-        return Attestation.from_bundle(bundle)
+        try:
+            bundle = signer.sign_dsse(stmt)
+        except (ExpiredCertificate, ExpiredIdentity) as e:
+            raise AttestationError(str(e))
+
+        try:
+            return Attestation.from_bundle(bundle)
+        except ConversionError as e:
+            raise AttestationError(str(e))
 
     def verify(
         self, verifier: Verifier, policy: VerificationPolicy, dist: Path
