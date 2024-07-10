@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `AttestationType` has been added, as an enumeration of all currently known
+  attestation types (by URL)
+  ([#29](https://github.com/trailofbits/pypi-attestations/pull/29))
+
+### Changed
+
+- `Attestation.verify` now checks the attestation's type against
+  `AttestationType` before returning it
+  ([#29](https://github.com/trailofbits/pypi-attestations/pull/29))
+
 ### Fixed
 
-- `Attestation.sign` now only returns `AttestationError` when failing to sign a distribution file ([#28](https://github.com/trailofbits/pypi-attestations/pull/28))
+- `Attestation.sign` now only returns `AttestationError` when failing to sign a
+  distribution file
+  ([#28](https://github.com/trailofbits/pypi-attestations/pull/28))
 
 ## [0.0.6]
 
