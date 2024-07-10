@@ -58,9 +58,7 @@ class TestAttestation:
         ):
             impl.Attestation.sign(pretend.stub(), bad_dist)
 
-    def test_sign_raises_attestation_exception(
-        self, id_token: IdentityToken, tmp_path: Path
-    ) -> None:
+    def test_sign_raises_attestation_exception(self, tmp_path: Path) -> None:
         non_existing_file = tmp_path / "invalid-name.tar.gz"
         with pytest.raises(impl.AttestationError, match="No such file"):
             impl.Attestation.sign(pretend.stub(), non_existing_file)
@@ -77,9 +75,7 @@ class TestAttestation:
         with pytest.raises(impl.AttestationError, match="Invalid sdist filename"):
             impl.Attestation.sign(pretend.stub(), bad_sdist_filename)
 
-    def test_wrong_predicate_raises_exception(
-        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def dummy_predicate(self_: _StatementBuilder, _: str) -> _StatementBuilder:
             # wrong type here to have a validation error
             self_._predicate_type = False
@@ -89,6 +85,7 @@ class TestAttestation:
         with pytest.raises(impl.AttestationError, match="invalid statement"):
             impl.Attestation.sign(pretend.stub(), artifact_path)
 
+    @online
     def test_expired_certificate(
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -102,6 +99,7 @@ class TestAttestation:
             with pytest.raises(impl.AttestationError):
                 impl.Attestation.sign(signer, artifact_path)
 
+    @online
     def test_multiple_signatures(
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -310,6 +308,41 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
+            attestation.verify(verifier, pol, artifact_path)
+
+    def test_verify_unknown_attestation_type(self) -> None:
+        statement = (
+            _StatementBuilder()  # noqa: SLF001
+            .subjects(
+                [
+                    _Subject(
+                        name="rfc8785-0.1.2-py3-none-any.whl",
+                        digest=_DigestSet(
+                            root={
+                                "sha256": "c4e92e9ecc828bef2aa7dba1de8ac983511f7532a0df11c770d39099a25cf201"
+                            }
+                        ),
+                    ),
+                ]
+            )
+            .predicate_type("foo")
+            .build()
+            ._inner.model_dump_json()
+        )
+
+        verifier = pretend.stub(
+            verify_dsse=pretend.call_recorder(
+                lambda bundle, policy: (
+                    "application/vnd.in-toto+json",
+                    statement.encode(),
+                )
+            )
+        )
+        pol = pretend.stub()
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+
+        with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
             attestation.verify(verifier, pol, artifact_path)
 
 
