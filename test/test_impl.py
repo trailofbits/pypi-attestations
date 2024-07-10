@@ -319,7 +319,9 @@ class TestAttestation:
                         name="rfc8785-0.1.2-py3-none-any.whl",
                         digest=_DigestSet(
                             root={
-                                "sha256": "c4e92e9ecc828bef2aa7dba1de8ac983511f7532a0df11c770d39099a25cf201"
+                                "sha256": (
+                                    "c4e92e9ecc828bef2aa7dba1de8ac983511f7532a0df11c770d39099a25cf201"
+                                ),
                             }
                         ),
                     ),
