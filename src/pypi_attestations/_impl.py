@@ -6,6 +6,7 @@ This module is NOT a public API, and is not considered stable.
 from __future__ import annotations
 
 import base64
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
@@ -35,6 +36,13 @@ if TYPE_CHECKING:
     from sigstore.sign import Signer  # pragma: no cover
     from sigstore.verify import Verifier  # pragma: no cover
     from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
+
+
+class AttestationType(StrEnum):
+    """Attestation types known to PyPI."""
+
+    SLSA_PROVENANCE_V1 = "https://slsa.dev/provenance/v1"
+    PYPI_PUBLISH_V1 = "https://docs.pypi.org/attestations/publish/v1"
 
 
 class AttestationError(ValueError):
@@ -119,7 +127,7 @@ class Attestation(BaseModel):
                         )
                     ]
                 )
-                .predicate_type("https://docs.pypi.org/attestations/publish/v1")
+                .predicate_type(AttestationType.SLSA_PROVENANCE_V1)
                 .build()
             )
         except DsseError as e:
