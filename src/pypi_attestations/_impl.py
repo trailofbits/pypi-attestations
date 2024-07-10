@@ -127,7 +127,7 @@ class Attestation(BaseModel):
                         )
                     ]
                 )
-                .predicate_type(AttestationType.SLSA_PROVENANCE_V1)
+                .predicate_type(AttestationType.PYPI_PUBLISH_V1)
                 .build()
             )
         except DsseError as e:
