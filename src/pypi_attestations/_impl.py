@@ -6,7 +6,7 @@ This module is NOT a public API, and is not considered stable.
 from __future__ import annotations
 
 import base64
-from enum import StrEnum
+from enum import Enum
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
 
 
-class AttestationType(StrEnum):
+class AttestationType(str, Enum):
     """Attestation types known to PyPI."""
 
     SLSA_PROVENANCE_V1 = "https://slsa.dev/provenance/v1"
