@@ -194,6 +194,11 @@ class Attestation(BaseModel):
         if digest is None or digest != expected_digest:
             raise VerificationError("subject does not match distribution digest")
 
+        try:
+            AttestationType(statement.predicate_type)
+        except ValueError:
+            raise VerificationError(f"unknown attestation type: {statement.predicate_type}")
+
         return statement.predicate_type, statement.predicate
 
     def to_bundle(self) -> Bundle:
