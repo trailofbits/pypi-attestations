@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `AttestationType` is now re-exported at the top-level as a public API
+
 ## [0.0.7]
 
 ### Added
