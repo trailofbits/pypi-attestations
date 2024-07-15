@@ -310,6 +310,41 @@ class TestAttestation:
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
             attestation.verify(verifier, pol, artifact_path)
 
+    def test_verify_distribution_invalid_name(self, tmp_path: Path) -> None:
+        statement = (
+            _StatementBuilder()  # noqa: SLF001
+            .subjects(
+                [
+                    _Subject(
+                        name=artifact_path.name,
+                        digest=_DigestSet(root={"sha256": "abcd"}),
+                    ),
+                ]
+            )
+            .predicate_type("foo")
+            .build()
+            ._inner.model_dump_json()
+        )
+
+        verifier = pretend.stub(
+            verify_dsse=pretend.call_recorder(
+                lambda bundle, policy: (
+                    "application/vnd.in-toto+json",
+                    statement.encode(),
+                )
+            )
+        )
+        pol = pretend.stub()
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        bad_artifact = tmp_path / "bad.whl"
+        bad_artifact.write_bytes(artifact_path.read_bytes())
+
+        with pytest.raises(
+            impl.VerificationError, match="invalid distribution name: Invalid wheel filename"
+        ):
+            attestation.verify(verifier, pol, bad_artifact)
+
     def test_verify_unknown_attestation_type(self) -> None:
         statement = (
             _StatementBuilder()  # noqa: SLF001

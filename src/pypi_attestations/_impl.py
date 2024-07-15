@@ -181,9 +181,13 @@ class Attestation(BaseModel):
         try:
             # We always ultranormalize when signing, but other signers may not.
             subject_name = _ultranormalize_dist_filename(subject.name)
-            normalized = _ultranormalize_dist_filename(dist.name)
         except ValueError as e:
             raise VerificationError(f"invalid subject: {str(e)}")
+
+        try:
+            normalized = _ultranormalize_dist_filename(dist.name)
+        except ValueError as e:
+            raise VerificationError(f"invalid distribution name: {str(e)}")
 
         if subject_name != normalized:
             raise VerificationError(
