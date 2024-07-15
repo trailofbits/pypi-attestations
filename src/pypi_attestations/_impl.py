@@ -184,7 +184,11 @@ class Attestation(BaseModel):
         except ValueError as e:
             raise VerificationError(f"invalid subject: {str(e)}")
 
-        normalized = _ultranormalize_dist_filename(dist.name)
+        try:
+            normalized = _ultranormalize_dist_filename(dist.name)
+        except ValueError as e:
+            raise VerificationError(f"invalid distribution name: {str(e)}")
+
         if subject_name != normalized:
             raise VerificationError(
                 f"subject does not match distribution name: {subject_name} != {normalized}"
