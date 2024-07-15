@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `verify`: catch another leaky error case
+  ([#32](https://github.com/trailofbits/pypi-attestations/pull/32))
+
+### Changed
+
+- `sign` and `verify` no longer perform I/O
+  ([#34](https://github.com/trailofbits/pypi-attestations/pull/34))
+
 ## [0.0.8]
 
 ### Fixed
