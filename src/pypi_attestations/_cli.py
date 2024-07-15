@@ -9,6 +9,7 @@ from pathlib import Path
 import sigstore.oidc
 from cryptography import x509
 from pydantic import ValidationError
+from sigstore._utils import _sha256_streaming
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
@@ -183,15 +184,19 @@ def _sign(args: argparse.Namespace) -> None:
         for file_path in args.files:
             _logger.debug(f"Signing {file_path}")
 
-            signature_path = Path(f"{file_path}.publish.attestation")
+            with file_path.open(mode="rb", buffering=0) as io:
+                # Replace this with `hashlib.file_digest()` once
+                # our minimum supported Python is >=3.11
+                digest = _sha256_streaming(io).hex()
+
             try:
-                attestation = Attestation.sign(signer, file_path)
+                attestation = Attestation.sign(signer, file_path.name, digest)
             except AttestationError as e:
                 _die(f"Failed to sign: {e}")
 
-            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
-
+            signature_path = Path(f"{file_path}.publish.attestation")
             signature_path.write_text(attestation.model_dump_json())
+            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
 
 
 def _inspect(args: argparse.Namespace) -> None:
@@ -266,8 +271,13 @@ def _verify(args: argparse.Namespace) -> None:
         except ValidationError as validation_error:
             _die(f"Invalid attestation ({file_path}): {validation_error}")
 
+        with file_path.open(mode="rb", buffering=0) as io:
+            # Replace this with `hashlib.file_digest()` once
+            # our minimum supported Python is >=3.11
+            digest = _sha256_streaming(io).hex()
+
         try:
-            attestation.verify(verifier, pol, file_path)
+            attestation.verify(verifier, pol, file_path.name, digest)
         except VerificationError as verification_error:
             _logger.error("Verification failed for %s: %s", file_path, verification_error)
             continue

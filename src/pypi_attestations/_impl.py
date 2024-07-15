@@ -21,7 +21,6 @@ from packaging.utils import (
 )
 from pydantic import Base64Bytes, BaseModel
 from pydantic_core import ValidationError
-from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
 from sigstore.dsse import Error as DsseError
 from sigstore.dsse import _DigestSet, _Statement, _StatementBuilder, _Subject
@@ -31,8 +30,6 @@ from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
 from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
 if TYPE_CHECKING:
-    from pathlib import Path  # pragma: no cover
-
     from sigstore.sign import Signer  # pragma: no cover
     from sigstore.verify import Verifier  # pragma: no cover
     from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
@@ -98,21 +95,13 @@ class Attestation(BaseModel):
     """
 
     @classmethod
-    def sign(cls, signer: Signer, dist: Path) -> Attestation:
-        """Create an envelope, with signature, from a distribution file.
+    def sign(cls, signer: Signer, dist_filename: str, dist_digest: str) -> Attestation:
+        """Create an envelope, with signature, from the given filename and digest.
 
         On failure, raises `AttestationError`.
         """
         try:
-            with dist.open(mode="rb", buffering=0) as io:
-                # Replace this with `hashlib.file_digest()` once
-                # our minimum supported Python is >=3.11
-                digest = _sha256_streaming(io).hex()
-        except OSError as e:
-            raise AttestationError(str(e))
-
-        try:
-            name = _ultranormalize_dist_filename(dist.name)
+            name = _ultranormalize_dist_filename(dist_filename)
         except (ValueError, InvalidWheelFilename, InvalidSdistFilename) as e:
             raise AttestationError(str(e))
 
@@ -123,7 +112,7 @@ class Attestation(BaseModel):
                     [
                         _Subject(
                             name=name,
-                            digest=_DigestSet(root={"sha256": digest}),
+                            digest=_DigestSet(root={"sha256": dist_digest}),
                         )
                     ]
                 )
@@ -144,19 +133,20 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-        self, verifier: Verifier, policy: VerificationPolicy, dist: Path
+        self,
+        verifier: Verifier,
+        policy: VerificationPolicy,
+        dist_filename: str,
+        dist_digest: str,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python artifact.
 
+        The artifact is identified by its distribution filename (sdist or wheel)
+        and its SHA-256 digest, as a hex string.
         Returns a tuple of the in-toto predicate type and optional deserialized JSON predicate.
 
         On failure, raises an appropriate subclass of `AttestationError`.
         """
-        with dist.open(mode="rb", buffering=0) as io:
-            # Replace this with `hashlib.file_digest()` once
-            # our minimum supported Python is >=3.11
-            expected_digest = _sha256_streaming(io).hex()
-
         bundle = self.to_bundle()
         try:
             type_, payload = verifier.verify_dsse(bundle, policy)
@@ -185,7 +175,7 @@ class Attestation(BaseModel):
             raise VerificationError(f"invalid subject: {str(e)}")
 
         try:
-            normalized = _ultranormalize_dist_filename(dist.name)
+            normalized = _ultranormalize_dist_filename(dist_filename)
         except ValueError as e:
             raise VerificationError(f"invalid distribution name: {str(e)}")
 
@@ -195,7 +185,7 @@ class Attestation(BaseModel):
             )
 
         digest = subject.digest.root.get("sha256")
-        if digest is None or digest != expected_digest:
+        if digest is None or digest != dist_digest:
             raise VerificationError("subject does not match distribution digest")
 
         try:
