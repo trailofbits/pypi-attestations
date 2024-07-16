@@ -34,6 +34,11 @@ gh_signed_dist_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.s
 
 
 class TestDistribution:
+    def test_from_file_nonexistent(self, tmp_path: Path) -> None:
+        nonexistent = tmp_path / "foo-1.2.3.tar.gz"
+        with pytest.raises(OSError):
+            impl.Distribution.from_file(nonexistent)
+
     def test_invalid_sdist_name(self) -> None:
         with pytest.raises(ValidationError, match="Invalid sdist filename"):
             impl.Distribution(name="invalid-name.tar.gz", digest=sha256(b"lol").hexdigest())
