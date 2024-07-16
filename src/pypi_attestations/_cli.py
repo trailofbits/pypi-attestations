@@ -9,12 +9,12 @@ from pathlib import Path
 import sigstore.oidc
 from cryptography import x509
 from pydantic import ValidationError
-from sigstore._utils import _sha256_streaming
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
+from pypi_attestations._impl import Distribution
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -184,13 +184,13 @@ def _sign(args: argparse.Namespace) -> None:
         for file_path in args.files:
             _logger.debug(f"Signing {file_path}")
 
-            with file_path.open(mode="rb", buffering=0) as io:
-                # Replace this with `hashlib.file_digest()` once
-                # our minimum supported Python is >=3.11
-                digest = _sha256_streaming(io).hex()
+            try:
+                dist = Distribution.from_file(file_path)
+            except ValidationError as e:
+                _die(f"Invalid Python package distribution: {e}")
 
             try:
-                attestation = Attestation.sign(signer, file_path.name, digest)
+                attestation = Attestation.sign(signer, dist)
             except AttestationError as e:
                 _die(f"Failed to sign: {e}")
 
@@ -271,13 +271,13 @@ def _verify(args: argparse.Namespace) -> None:
         except ValidationError as validation_error:
             _die(f"Invalid attestation ({file_path}): {validation_error}")
 
-        with file_path.open(mode="rb", buffering=0) as io:
-            # Replace this with `hashlib.file_digest()` once
-            # our minimum supported Python is >=3.11
-            digest = _sha256_streaming(io).hex()
+        try:
+            dist = Distribution.from_file(file_path)
+        except ValidationError as e:
+            _die(f"Invalid Python package distribution: {e}")
 
         try:
-            attestation.verify(verifier, pol, file_path.name, digest)
+            attestation.verify(verifier, pol, dist)
         except VerificationError as verification_error:
             _logger.error("Verification failed for %s: %s", file_path, verification_error)
             continue

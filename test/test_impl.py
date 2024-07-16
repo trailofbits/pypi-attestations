@@ -8,6 +8,7 @@ import pretend
 import pypi_attestations._impl as impl
 import pytest
 import sigstore
+from pydantic import ValidationError
 from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -21,15 +22,29 @@ online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
 _HERE = Path(__file__).parent
 _ASSETS = _HERE / "assets"
 
-artifact_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
-artifact_digest = sha256(artifact_path.read_bytes()).hexdigest()
-bundle_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
-attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.attestation"
+dist_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
+dist = impl.Distribution.from_file(dist_path)
+dist_bundle_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
+dist_attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.attestation"
 
 # produced by actions/attest@v1
-gh_signed_artifact_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz"
-gh_signed_artifact_digest = sha256(gh_signed_artifact_path.read_bytes()).hexdigest()
-gh_signed_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.sigstore"
+gh_signed_dist_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz"
+gh_signed_dist = impl.Distribution.from_file(gh_signed_dist_path)
+gh_signed_dist_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.sigstore"
+
+
+class TestDistribution:
+    def test_invalid_sdist_name(self) -> None:
+        with pytest.raises(ValidationError, match="Invalid sdist filename"):
+            impl.Distribution(name="invalid-name.tar.gz", digest=sha256(b"lol").hexdigest())
+
+    def test_invalid_wheel_name(self) -> None:
+        with pytest.raises(ValidationError, match="Invalid wheel filename"):
+            impl.Distribution(name="invalid-name.whl", digest=sha256(b"lol").hexdigest())
+
+    def test_invalid_unknown_dist(self) -> None:
+        with pytest.raises(ValidationError, match="unknown distribution format"):
+            impl.Distribution(name="complete.nonsense", digest=sha256(b"lol").hexdigest())
 
 
 class TestAttestation:
@@ -39,9 +54,9 @@ class TestAttestation:
         verifier = Verifier.staging()
 
         with sign_ctx.signer(id_token) as signer:
-            attestation = impl.Attestation.sign(signer, artifact_path.name, artifact_digest)
+            attestation = impl.Attestation.sign(signer, dist)
 
-        attestation.verify(verifier, policy.UnsafeNoOp(), artifact_path.name, artifact_digest)
+        attestation.verify(verifier, policy.UnsafeNoOp(), dist)
 
         # converting to a bundle and verifying as a bundle also works
         bundle = attestation.to_bundle()
@@ -49,32 +64,7 @@ class TestAttestation:
 
         # converting back also works
         roundtripped_attestation = impl.Attestation.from_bundle(bundle)
-        roundtripped_attestation.verify(
-            verifier, policy.UnsafeNoOp(), artifact_path.name, artifact_digest
-        )
-
-    def test_sign_invalid_dist_filename(self, tmp_path: Path) -> None:
-        bad_dist = tmp_path / "invalid-name.tar.gz"
-        bad_dist.write_bytes(b"junk")
-
-        with pytest.raises(
-            impl.AttestationError,
-            match=r"Invalid sdist filename \(invalid version\): invalid-name\.tar\.gz",
-        ):
-            impl.Attestation.sign(pretend.stub(), bad_dist.name, "abcd")
-
-    def test_sign_raises_attestation_exception(self, tmp_path: Path) -> None:
-        bad_wheel_filename = tmp_path / "invalid-name.whl"
-        bad_wheel_filename.write_bytes(b"junk")
-
-        with pytest.raises(impl.AttestationError, match="Invalid wheel filename"):
-            impl.Attestation.sign(pretend.stub(), bad_wheel_filename.name, "abcd")
-
-        bad_sdist_filename = tmp_path / "invalid_name.tar.gz"
-        bad_sdist_filename.write_bytes(b"junk")
-
-        with pytest.raises(impl.AttestationError, match="Invalid sdist filename"):
-            impl.Attestation.sign(pretend.stub(), bad_sdist_filename.name, "abcd")
+        roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), dist)
 
     def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def dummy_predicate(self_: _StatementBuilder, _: str) -> _StatementBuilder:
@@ -84,7 +74,7 @@ class TestAttestation:
 
         monkeypatch.setattr(sigstore.dsse._StatementBuilder, "predicate_type", dummy_predicate)
         with pytest.raises(impl.AttestationError, match="invalid statement"):
-            impl.Attestation.sign(pretend.stub(), artifact_path.name, artifact_digest)
+            impl.Attestation.sign(pretend.stub(), dist)
 
     @online
     def test_expired_certificate(
@@ -98,7 +88,7 @@ class TestAttestation:
         sign_ctx = SigningContext.staging()
         with sign_ctx.signer(id_token, cache=False) as signer:
             with pytest.raises(impl.AttestationError):
-                impl.Attestation.sign(signer, artifact_path.name, artifact_digest)
+                impl.Attestation.sign(signer, dist)
 
     @online
     def test_multiple_signatures(
@@ -106,7 +96,7 @@ class TestAttestation:
     ) -> None:
         def get_bundle(*_) -> Bundle:  # noqa: ANN002
             # Duplicate the signature to trigger a Conversion error
-            bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
+            bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
             bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
             return bundle
 
@@ -116,7 +106,7 @@ class TestAttestation:
 
         with pytest.raises(impl.AttestationError):
             with sign_ctx.signer(id_token) as signer:
-                impl.Attestation.sign(signer, artifact_path.name, artifact_digest)
+                impl.Attestation.sign(signer, dist)
 
     def test_verify_github_attested(self) -> None:
         verifier = Verifier.production()
@@ -129,12 +119,10 @@ class TestAttestation:
             ]
         )
 
-        bundle = Bundle.from_json(gh_signed_bundle_path.read_bytes())
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
         attestation = impl.Attestation.from_bundle(bundle)
 
-        predicate_type, predicate = attestation.verify(
-            verifier, pol, gh_signed_artifact_path.name, gh_signed_artifact_digest
-        )
+        predicate_type, predicate = attestation.verify(verifier, pol, gh_signed_dist)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
@@ -145,10 +133,8 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
-        predicate_type, predicate = attestation.verify(
-            verifier, pol, artifact_path.name, artifact_digest
-        )
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        predicate_type, predicate = attestation.verify(verifier, pol, dist)
 
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate is None
@@ -164,21 +150,18 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
-        modified_artifact_path = tmp_path / artifact_path.name
-        modified_artifact_path.write_bytes(b"nothing")
+        modified_dist_path = tmp_path / dist_path.name
+        modified_dist_path.write_bytes(b"nothing")
+
+        modified_dist = impl.Distribution.from_file(modified_dist_path)
 
         # attestation has the correct filename, but a mismatching digest.
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution digest"
         ):
-            attestation.verify(
-                verifier,
-                pol,
-                modified_artifact_path.name,
-                sha256(modified_artifact_path.read_bytes()).hexdigest(),
-            )
+            attestation.verify(verifier, pol, modified_dist)
 
     def test_verify_filename_mismatch(self, tmp_path: Path) -> None:
         verifier = Verifier.staging()
@@ -187,26 +170,28 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
-        modified_artifact_path = tmp_path / "wrong_name-0.1.2-py3-none-any.whl"
-        modified_artifact_path.write_bytes(artifact_path.read_bytes())
+        modified_dist_path = tmp_path / "wrong_name-0.1.2-py3-none-any.whl"
+        modified_dist_path.write_bytes(dist_path.read_bytes())
+
+        different_name_dist = impl.Distribution.from_file(modified_dist_path)
 
         # attestation has the correct digest, but a mismatching filename.
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution name"
         ):
-            attestation.verify(verifier, pol, modified_artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, different_name_dist)
 
     def test_verify_policy_mismatch(self) -> None:
         verifier = Verifier.staging()
         # Wrong identity.
         pol = policy.Identity(identity="fake@example.com", issuer="https://github.com/login/oauth")
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match=r"Certificate's SANs do not match"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_wrong_envelope(self) -> None:
         verifier = pretend.stub(
@@ -214,10 +199,10 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="expected JSON envelope, got fake-type"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_bad_payload(self) -> None:
         verifier = pretend.stub(
@@ -227,10 +212,10 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid statement"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_too_many_subjects(self) -> None:
         statement = (
@@ -256,10 +241,10 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="too many subjects in statement"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_subject_missing_name(self) -> None:
         statement = (
@@ -284,10 +269,10 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: missing name"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_subject_invalid_name(self) -> None:
         statement = (
@@ -315,45 +300,10 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
-
-    def test_verify_distribution_invalid_name(self, tmp_path: Path) -> None:
-        statement = (
-            _StatementBuilder()  # noqa: SLF001
-            .subjects(
-                [
-                    _Subject(
-                        name=artifact_path.name,
-                        digest=_DigestSet(root={"sha256": "abcd"}),
-                    ),
-                ]
-            )
-            .predicate_type("foo")
-            .build()
-            ._inner.model_dump_json()
-        )
-
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: (
-                    "application/vnd.in-toto+json",
-                    statement.encode(),
-                )
-            )
-        )
-        pol = pretend.stub()
-
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
-        bad_artifact = tmp_path / "bad.whl"
-        bad_artifact.write_bytes(artifact_path.read_bytes())
-
-        with pytest.raises(
-            impl.VerificationError, match="invalid distribution name: Invalid wheel filename"
-        ):
-            attestation.verify(verifier, pol, bad_artifact.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
     def test_verify_unknown_attestation_type(self) -> None:
         statement = (
@@ -387,14 +337,14 @@ class TestAttestation:
         )
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
-            attestation.verify(verifier, pol, artifact_path.name, artifact_digest)
+            attestation.verify(verifier, pol, dist)
 
 
 def test_from_bundle_missing_signatures() -> None:
-    bundle = Bundle.from_json(bundle_path.read_bytes())
+    bundle = Bundle.from_json(dist_bundle_path.read_bytes())
     bundle._inner.dsse_envelope.signatures = []  # noqa: SLF001
 
     with pytest.raises(impl.ConversionError, match="expected exactly one signature, got 0"):
@@ -402,7 +352,7 @@ def test_from_bundle_missing_signatures() -> None:
 
 
 def test_to_bundle_invalid_cert() -> None:
-    attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+    attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
     attestation.verification_material.certificate = b"foo"
 
     with pytest.raises(impl.ConversionError, match="invalid X.509 certificate"):
@@ -410,7 +360,7 @@ def test_to_bundle_invalid_cert() -> None:
 
 
 def test_to_bundle_invalid_tlog_entry() -> None:
-    attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+    attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
     attestation.verification_material.transparency_entries[0].clear()
 
     with pytest.raises(impl.ConversionError, match="invalid transparency log entry"):
