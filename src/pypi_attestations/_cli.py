@@ -196,7 +196,7 @@ def _sign(args: argparse.Namespace) -> None:
 
             signature_path = Path(f"{file_path}.publish.attestation")
             signature_path.write_text(attestation.model_dump_json())
-            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
+            _logger.debug("Attestation for %s saved in %s", file_path, signature_path)
 
 
 def _inspect(args: argparse.Namespace) -> None:

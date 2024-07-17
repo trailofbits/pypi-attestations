@@ -122,7 +122,7 @@ class Attestation(BaseModel):
 
     @classmethod
     def sign(cls, signer: Signer, dist: Distribution) -> Attestation:
-        """Create an envelope, with signature, from the given filename and digest.
+        """Create an envelope, with signature, from the given Python distribution.
 
         On failure, raises `AttestationError`.
         """
