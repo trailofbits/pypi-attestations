@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `Distribution` type and APIs have been added, allowing a user to supply
+  a pre-computed digest instead of performing I/O
+  ([#34](https://github.com/trailofbits/pypi-attestations/pull/34))
+
+### Changed
+
+- `sign` and `verify` no longer perform I/O
+  ([#34](https://github.com/trailofbits/pypi-attestations/pull/34))
+
+
+### Fixed
+
+- `verify`: catch another leaky error case
+  ([#32](https://github.com/trailofbits/pypi-attestations/pull/32))
+
+
 ## [0.0.8]
 
 ### Fixed

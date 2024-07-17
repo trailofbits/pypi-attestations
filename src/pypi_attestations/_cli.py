@@ -14,6 +14,7 @@ from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
+from pypi_attestations._impl import Distribution
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -183,15 +184,19 @@ def _sign(args: argparse.Namespace) -> None:
         for file_path in args.files:
             _logger.debug(f"Signing {file_path}")
 
-            signature_path = Path(f"{file_path}.publish.attestation")
             try:
-                attestation = Attestation.sign(signer, file_path)
+                dist = Distribution.from_file(file_path)
+            except ValidationError as e:
+                _die(f"Invalid Python package distribution: {e}")
+
+            try:
+                attestation = Attestation.sign(signer, dist)
             except AttestationError as e:
                 _die(f"Failed to sign: {e}")
 
-            _logger.debug("Attestation saved for %s saved in %s", file_path, signature_path)
-
+            signature_path = Path(f"{file_path}.publish.attestation")
             signature_path.write_text(attestation.model_dump_json())
+            _logger.debug("Attestation for %s saved in %s", file_path, signature_path)
 
 
 def _inspect(args: argparse.Namespace) -> None:
@@ -267,7 +272,12 @@ def _verify(args: argparse.Namespace) -> None:
             _die(f"Invalid attestation ({file_path}): {validation_error}")
 
         try:
-            attestation.verify(verifier, pol, file_path)
+            dist = Distribution.from_file(file_path)
+        except ValidationError as e:
+            _die(f"Invalid Python package distribution: {e}")
+
+        try:
+            attestation.verify(verifier, pol, dist)
         except VerificationError as verification_error:
             _logger.error("Verification failed for %s: %s", file_path, verification_error)
             continue
