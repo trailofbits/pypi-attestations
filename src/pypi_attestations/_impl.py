@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-            self,
-            verifier: Verifier,
-            policy: VerificationPolicy,
-            dist: Distribution,
+        self,
+        verifier: Verifier,
+        policy: VerificationPolicy,
+        dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
@@ -347,10 +347,7 @@ class Publisher(BaseModel):
     @classmethod
     def from_kind(cls, kind: str) -> Publisher:
         """Construct a Publisher from a kind."""
-        return Publisher(
-            kind=kind,
-            claims=None
-        )
+        return Publisher(kind=kind, claims=None)
 
 
 class AttestationBundle(BaseModel):
@@ -405,12 +402,8 @@ def construct_simple_provenance_object(kind: str, attestations: list[str | bytes
     attestation_bundle = AttestationBundle(
         publisher=publisher,
         attestations=[
-            TypeAdapter(Attestation).validate_json(attestation)
-            for attestation in attestations
+            TypeAdapter(Attestation).validate_json(attestation) for attestation in attestations
         ],
     )
 
-    return Provenance(
-        version=1,
-        attestation_bundles=[attestation_bundle]
-    )
+    return Provenance(version=1, attestation_bundles=[attestation_bundle])
