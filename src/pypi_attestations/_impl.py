@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Union
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, TypeAdapter, field_validator
+from pydantic import Base64Bytes, BaseModel, Field, TypeAdapter, field_validator
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-        self,
-        verifier: Verifier,
-        policy: VerificationPolicy,
-        dist: Distribution,
+            self,
+            verifier: Verifier,
+            policy: VerificationPolicy,
+            dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
@@ -334,12 +334,14 @@ def _ultranormalize_dist_filename(dist: str) -> str:
 
 
 class Publisher(BaseModel):
+    """Publisher as defined in PEP 740."""
+
     kind: str
     """
     The kind of Trusted Publisher.
     """
 
-    claims: object | None
+    claims: Union[object, None] = Field(...)  # noqa: UP007
     """
     Claims specified by the publisher.
     """
@@ -351,6 +353,8 @@ class Publisher(BaseModel):
 
 
 class AttestationBundle(BaseModel):
+    """AttestationBundle object as defined in PEP 740."""
+
     publisher: Publisher
     """
     The publisher associated with this set of attestations.
@@ -363,6 +367,8 @@ class AttestationBundle(BaseModel):
 
 
 class Provenance(BaseModel):
+    """Provenance object as defined in PEP 740."""
+
     version: Literal[1]
     """
     The provenance object's version, which is always 1.
