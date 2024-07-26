@@ -83,7 +83,7 @@ class TestAttestation:
 
     @online
     def test_expired_certificate(
-        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
+            self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def in_validity_period(_: IdentityToken) -> bool:
             return False
@@ -97,7 +97,7 @@ class TestAttestation:
 
     @online
     def test_multiple_signatures(
-        self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
+            self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def get_bundle(*_) -> Bundle:  # noqa: ANN002
             # Duplicate the signature to trigger a Conversion error
@@ -164,7 +164,7 @@ class TestAttestation:
 
         # attestation has the correct filename, but a mismatching digest.
         with pytest.raises(
-            impl.VerificationError, match="subject does not match distribution digest"
+                impl.VerificationError, match="subject does not match distribution digest"
         ):
             attestation.verify(verifier, pol, modified_dist)
 
@@ -184,7 +184,7 @@ class TestAttestation:
 
         # attestation has the correct digest, but a mismatching filename.
         with pytest.raises(
-            impl.VerificationError, match="subject does not match distribution name"
+                impl.VerificationError, match="subject does not match distribution name"
         ):
             attestation.verify(verifier, pol, different_name_dist)
 
@@ -403,12 +403,12 @@ class TestPackaging:
         # wheel: compressed tag sets are sorted, even when conflicting or nonsense
         ("foo-1.0-py3.py2-none-any.whl", "foo-1.0-py2.py3-none-any.whl"),
         (
-            "foo-1.0-py3.py2-none.abi3.cp37-any.whl",
-            "foo-1.0-py2.py3-abi3.cp37.none-any.whl",
+                "foo-1.0-py3.py2-none.abi3.cp37-any.whl",
+                "foo-1.0-py2.py3-abi3.cp37.none-any.whl",
         ),
         (
-            "foo-1.0-py3.py2-none.abi3.cp37-linux_x86_64.any.whl",
-            "foo-1.0-py2.py3-abi3.cp37.none-any.linux_x86_64.whl",
+                "foo-1.0-py3.py2-none.abi3.cp37-linux_x86_64.any.whl",
+                "foo-1.0-py2.py3-abi3.cp37.none-any.linux_x86_64.whl",
         ),
         # wheel: verbose compressed tag sets are re-compressed
         ("foo-1.0-py3.py2.py3-none-any.whl", "foo-1.0-py2.py3-none-any.whl"),
@@ -462,3 +462,33 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
 def test_ultranormalize_dist_filename_invalid(input: str) -> None:
     with pytest.raises(ValueError):
         impl._ultranormalize_dist_filename(input)
+
+
+def test_construct_provenance() -> None:
+    attestation_bytes = dist_attestation_path.read_bytes()
+
+    provenance = impl.construct_simple_provenance_object(
+        kind="simple-publisher-url",
+        attestations=[
+            attestation_bytes
+        ]
+    )
+
+    assert provenance.version == 1
+    assert len(provenance.attestation_bundles) == 1
+
+    bundle = provenance.attestation_bundles[0]
+    assert bundle.publisher.claims is None
+    assert bundle.publisher.kind == "simple-publisher-url"
+
+    assert bundle.attestations == [impl.Attestation.model_validate_json(attestation_bytes)]
+
+
+def test_construct_provenance_fails() -> None:
+    with pytest.raises(impl.ProvenanceError):
+        impl.construct_simple_provenance_object(kind="",
+                                                attestations=[dist_attestation_path.read_bytes()])
+
+    with pytest.raises(impl.ProvenanceError):
+        impl.construct_simple_provenance_object(kind="simple-publisher-url",
+                                                attestations=[])

@@ -4,23 +4,31 @@ __version__ = "0.0.9"
 
 from ._impl import (
     Attestation,
+    AttestationBundle,
     AttestationError,
     AttestationType,
     ConversionError,
     Distribution,
     Envelope,
+    Provenance,
+    Publisher,
     TransparencyLogEntry,
     VerificationError,
     VerificationMaterial,
+    construct_simple_provenance_object,
 )
 
 __all__ = [
     "Attestation",
+    "AttestationBundle",
     "AttestationError",
     "AttestationType",
-    "Envelope",
     "ConversionError",
+    "construct_simple_provenance_object",
     "Distribution",
+    "Envelope",
+    "Provenance",
+    "Publisher",
     "TransparencyLogEntry",
     "VerificationError",
     "VerificationMaterial",

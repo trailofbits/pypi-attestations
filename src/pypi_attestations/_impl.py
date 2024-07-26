@@ -14,7 +14,7 @@ from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, field_validator
+from pydantic import Base64Bytes, BaseModel, TypeAdapter, field_validator
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-        self,
-        verifier: Verifier,
-        policy: VerificationPolicy,
-        dist: Distribution,
+            self,
+            verifier: Verifier,
+            policy: VerificationPolicy,
+            dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
@@ -331,3 +331,86 @@ def _ultranormalize_dist_filename(dist: str) -> str:
         return f"{name}-{ver}.tar.gz"
     else:
         raise ValueError(f"unknown distribution format: {dist}")
+
+
+class Publisher(BaseModel):
+    kind: str
+    """
+    The kind of Trusted Publisher.
+    """
+
+    claims: object | None
+    """
+    Claims specified by the publisher.
+    """
+
+    @classmethod
+    def from_kind(cls, kind: str) -> Publisher:
+        """Construct a Publisher from a kind."""
+        return Publisher(
+            kind=kind,
+            claims=None
+        )
+
+
+class AttestationBundle(BaseModel):
+    publisher: Publisher
+    """
+    The publisher associated with this set of attestations.
+    """
+
+    attestations: list[Attestation]
+    """
+    The list of attestations included in this bundle.
+    """
+
+
+class Provenance(BaseModel):
+    version: Literal[1]
+    """
+    The provenance object's version, which is always 1.
+    """
+
+    attestation_bundles: list[AttestationBundle]
+    """
+    One or more attestation "bundles".
+    """
+
+
+class ProvenanceError(AttestationError):
+    """The Provenance object was not constructed."""
+
+    def __init__(self: ProvenanceError, msg: str) -> None:
+        """Initialize an `ProvenanceError`."""
+        super().__init__(f"Provenance object not constructed: {msg}")
+
+
+def construct_simple_provenance_object(kind: str, attestations: list[str | bytes]) -> Provenance:
+    """Construct a provenance object.
+
+    The Provenance object is constructed using:
+        - a publisher kind
+        - a list of attestations
+
+    This provenance object only accept one publisher.
+    """
+    if not kind:
+        raise ProvenanceError("Missing Publisher kind.")
+
+    if not attestations:
+        raise ProvenanceError("Missing attestations.")
+
+    publisher = Publisher.from_kind(kind=kind)
+
+    attestation_bundle = AttestationBundle(
+        publisher=publisher,
+        attestations=[
+            TypeAdapter(Attestation).validate_json(attestation)
+            for attestation in attestations
+        ],
+    )
+
+    return Provenance(
+        version=1,
+        attestation_bundles=[attestation_bundle]
+    )
