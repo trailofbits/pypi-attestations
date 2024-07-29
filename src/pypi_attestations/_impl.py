@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-            self,
-            verifier: Verifier,
-            policy: VerificationPolicy,
-            dist: Distribution,
+        self,
+        verifier: Verifier,
+        policy: VerificationPolicy,
+        dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
