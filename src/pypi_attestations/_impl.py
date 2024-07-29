@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, Field, field_validator
+from pydantic import Base64Bytes, BaseModel, field_validator
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-        self,
-        verifier: Verifier,
-        policy: VerificationPolicy,
-        dist: Distribution,
+            self,
+            verifier: Verifier,
+            policy: VerificationPolicy,
+            dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
@@ -341,7 +341,7 @@ class Publisher(BaseModel):
     The kind of Trusted Publisher.
     """
 
-    claims: Union[object, None] = Field(...)  # noqa: UP007
+    claims: object | None
     """
     Claims specified by the publisher.
     """
