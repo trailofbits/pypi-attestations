@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The minimum Python version required has been bumped to `3.11`
+  ([#37](https://github.com/trailofbits/pypi-attestations/pull/37))
+
 ## [0.0.9]
 
 ### Added

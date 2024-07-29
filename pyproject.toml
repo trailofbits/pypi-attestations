@@ -20,7 +20,7 @@ dependencies = [
     "sigstore~=3.0.0",
     "sigstore-protobuf-specs",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 doc = ["pdoc"]
@@ -75,7 +75,7 @@ warn_unused_ignores = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "ANN", "D", "COM", "ISC", "TCH", "SLF"]
