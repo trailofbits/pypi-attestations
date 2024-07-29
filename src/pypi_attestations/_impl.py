@@ -14,7 +14,7 @@ from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, Field, TypeAdapter, field_validator
+from pydantic import Base64Bytes, BaseModel, Field, field_validator
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
@@ -346,11 +346,6 @@ class Publisher(BaseModel):
     Claims specified by the publisher.
     """
 
-    @classmethod
-    def from_kind(cls, kind: str) -> Publisher:
-        """Construct a Publisher from a kind."""
-        return Publisher(kind=kind, claims=None)
-
 
 class AttestationBundle(BaseModel):
     """AttestationBundle object as defined in PEP 740."""
@@ -379,37 +374,11 @@ class Provenance(BaseModel):
     One or more attestation "bundles".
     """
 
-
-class ProvenanceError(AttestationError):
-    """The Provenance object was not constructed."""
-
-    def __init__(self: ProvenanceError, msg: str) -> None:
-        """Initialize an `ProvenanceError`."""
-        super().__init__(f"Provenance object not constructed: {msg}")
-
-
-def construct_simple_provenance_object(kind: str, attestations: list[str | bytes]) -> Provenance:
-    """Construct a provenance object.
-
-    The Provenance object is constructed using:
-        - a publisher kind
-        - a list of attestations
-
-    This provenance object only accepts one publisher.
-    """
-    if not kind:
-        raise ProvenanceError("Missing Publisher kind.")
-
-    if not attestations:
-        raise ProvenanceError("Missing attestations.")
-
-    publisher = Publisher.from_kind(kind=kind)
-
-    attestation_bundle = AttestationBundle(
-        publisher=publisher,
-        attestations=[
-            TypeAdapter(Attestation).validate_json(attestation) for attestation in attestations
-        ],
-    )
-
-    return Provenance(version=1, attestation_bundles=[attestation_bundle])
+    @classmethod
+    def construct_simple(cls, publisher: Publisher, attestations: list[Attestation]) -> Provenance:
+        """Construct a simple Provenance object."""
+        attestation_bundle = AttestationBundle(
+            publisher=publisher,
+            attestations=attestations,
+        )
+        return cls(version=1, attestation_bundles=[attestation_bundle])

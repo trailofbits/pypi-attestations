@@ -465,11 +465,10 @@ def test_ultranormalize_dist_filename_invalid(input: str) -> None:
 
 
 def test_construct_provenance() -> None:
-    attestation_bytes = dist_attestation_path.read_bytes()
+    attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
-    provenance = impl.construct_simple_provenance_object(
-        kind="simple-publisher-url", attestations=[attestation_bytes]
-    )
+    publisher = impl.Publisher(kind="simple-publisher-url", claims=None)
+    provenance = impl.Provenance.construct_simple(publisher=publisher, attestations=[attestation])
 
     assert provenance.version == 1
     assert len(provenance.attestation_bundles) == 1
@@ -478,14 +477,4 @@ def test_construct_provenance() -> None:
     assert bundle.publisher.claims is None
     assert bundle.publisher.kind == "simple-publisher-url"
 
-    assert bundle.attestations == [impl.Attestation.model_validate_json(attestation_bytes)]
-
-
-def test_construct_provenance_fails() -> None:
-    with pytest.raises(impl.ProvenanceError):
-        impl.construct_simple_provenance_object(
-            kind="", attestations=[dist_attestation_path.read_bytes()]
-        )
-
-    with pytest.raises(impl.ProvenanceError):
-        impl.construct_simple_provenance_object(kind="simple-publisher-url", attestations=[])
+    assert bundle.attestations == [attestation]

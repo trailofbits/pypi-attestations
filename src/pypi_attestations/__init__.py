@@ -15,7 +15,6 @@ from ._impl import (
     TransparencyLogEntry,
     VerificationError,
     VerificationMaterial,
-    construct_simple_provenance_object,
 )
 
 __all__ = [
@@ -24,7 +23,6 @@ __all__ = [
     "AttestationError",
     "AttestationType",
     "ConversionError",
-    "construct_simple_provenance_object",
     "Distribution",
     "Envelope",
     "Provenance",
