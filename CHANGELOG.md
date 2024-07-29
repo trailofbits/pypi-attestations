@@ -15,9 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `Provenance`, `Publisher`, `AttestationBundle` types have been added
   ([#36](https://github.com/trailofbits/pypi-attestations/pull/36)).
 
-- The `construct_simple_provenance_object` function has been added, allowing
-  to construct a Provenance object from a single publisher kind and a list of
-  attestations from this publisher ([#36](https://github.com/trailofbits/pypi-attestations/pull/36)).
 
 ## [0.0.9]
 
