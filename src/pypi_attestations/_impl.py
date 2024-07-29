@@ -154,10 +154,10 @@ class Attestation(BaseModel):
             raise AttestationError(str(e))
 
     def verify(
-            self,
-            verifier: Verifier,
-            policy: VerificationPolicy,
-            dist: Distribution,
+        self,
+        verifier: Verifier,
+        policy: VerificationPolicy,
+        dist: Distribution,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
@@ -395,7 +395,7 @@ def construct_simple_provenance_object(kind: str, attestations: list[str | bytes
         - a publisher kind
         - a list of attestations
 
-    This provenance object only accept one publisher.
+    This provenance object only accepts one publisher.
     """
     if not kind:
         raise ProvenanceError("Missing Publisher kind.")
