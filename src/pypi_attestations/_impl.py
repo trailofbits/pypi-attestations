@@ -14,7 +14,8 @@ from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, field_validator
+from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import Envelope as DsseEnvelope
@@ -333,18 +334,52 @@ def _ultranormalize_dist_filename(dist: str) -> str:
         raise ValueError(f"unknown distribution format: {dist}")
 
 
-class Publisher(BaseModel):
-    """Publisher as defined in PEP 740."""
+class _PublisherBase(BaseModel):
+    model_config = ConfigDict(alias_generator=to_snake)
 
     kind: str
+    claims: dict[str, Any] | None = None
+
+
+class GitHubPublisher(_PublisherBase):
+    kind: Literal["GitHub"] = "GitHub"
+
+    repository: str
     """
-    The kind of Trusted Publisher.
+    The fully qualified publishing repository slug, e.g. `foo/bar` for
+    repository `bar` owned by `foo`.
     """
 
-    claims: dict[str, Any] | None
+    workflow: str
     """
-    Claims specified by the publisher.
+    The filename of the GitHub Actions workflow that performed the publishing
+    action.
     """
+
+    environment: str | None = None
+    """
+    The optional name GitHub Actions environment that the publishing
+    action was performed from.
+    """
+
+
+class GitLabPublisher(_PublisherBase):
+    kind: Literal["GitLab"] = "GitLab"
+
+    repository: str
+    """
+    The fully qualified publishing repository slug, e.g. `foo/bar` for
+    repository `bar` owned by `foo` or `foo/baz/bar` for repository
+    `bar` owned by group `foo` and subgroup `baz`.
+    """
+
+    environment: str | None = None
+    """
+    The optional environment that the publishing action was performed from.
+    """
+
+
+Publisher = Annotated[GitHubPublisher | GitLabPublisher, Field(discriminator="kind")]
 
 
 class AttestationBundle(BaseModel):
@@ -364,7 +399,7 @@ class AttestationBundle(BaseModel):
 class Provenance(BaseModel):
     """Provenance object as defined in PEP 740."""
 
-    version: Literal[1]
+    version: Literal[1] = 1
     """
     The provenance object's version, which is always 1.
     """
@@ -373,12 +408,3 @@ class Provenance(BaseModel):
     """
     One or more attestation "bundles".
     """
-
-    @classmethod
-    def construct_simple(cls, publisher: Publisher, attestations: list[Attestation]) -> Provenance:
-        """Construct a simple Provenance object."""
-        attestation_bundle = AttestationBundle(
-            publisher=publisher,
-            attestations=attestations,
-        )
-        return cls(version=1, attestation_bundles=[attestation_bundle])
