@@ -341,7 +341,7 @@ class Publisher(BaseModel):
     The kind of Trusted Publisher.
     """
 
-    claims: object | None
+    claims: dict[str, Any] | None
     """
     Claims specified by the publisher.
     """
