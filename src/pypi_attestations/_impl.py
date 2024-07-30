@@ -342,6 +342,8 @@ class _PublisherBase(BaseModel):
 
 
 class GitHubPublisher(_PublisherBase):
+    """A GitHub-based Trusted Publisher."""
+
     kind: Literal["GitHub"] = "GitHub"
 
     repository: str
@@ -364,6 +366,8 @@ class GitHubPublisher(_PublisherBase):
 
 
 class GitLabPublisher(_PublisherBase):
+    """A GitLab-based Trusted Publisher."""
+
     kind: Literal["GitLab"] = "GitLab"
 
     repository: str
