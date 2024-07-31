@@ -9,7 +9,7 @@ import pypi_attestations._impl as impl
 import pytest
 import sigstore
 from pydantic import ValidationError
-from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
+from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
 from sigstore.sign import SigningContext
@@ -72,12 +72,12 @@ class TestAttestation:
         roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), dist)
 
     def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def dummy_predicate(self_: _StatementBuilder, _: str) -> _StatementBuilder:
+        def dummy_predicate(self_: StatementBuilder, _: str) -> StatementBuilder:
             # wrong type here to have a validation error
             self_._predicate_type = False
             return self_
 
-        monkeypatch.setattr(sigstore.dsse._StatementBuilder, "predicate_type", dummy_predicate)
+        monkeypatch.setattr(sigstore.dsse.StatementBuilder, "predicate_type", dummy_predicate)
         with pytest.raises(impl.AttestationError, match="invalid statement"):
             impl.Attestation.sign(pretend.stub(), dist)
 
@@ -224,11 +224,11 @@ class TestAttestation:
 
     def test_verify_too_many_subjects(self) -> None:
         statement = (
-            _StatementBuilder()  # noqa: SLF001
+            StatementBuilder()  # noqa: SLF001
             .subjects(
                 [
-                    _Subject(name="foo", digest=_DigestSet(root={"sha256": "abcd"})),
-                    _Subject(name="bar", digest=_DigestSet(root={"sha256": "1234"})),
+                    Subject(name="foo", digest=DigestSet(root={"sha256": "abcd"})),
+                    Subject(name="bar", digest=DigestSet(root={"sha256": "1234"})),
                 ]
             )
             .predicate_type("foo")
@@ -253,10 +253,10 @@ class TestAttestation:
 
     def test_verify_subject_missing_name(self) -> None:
         statement = (
-            _StatementBuilder()  # noqa: SLF001
+            StatementBuilder()  # noqa: SLF001
             .subjects(
                 [
-                    _Subject(name=None, digest=_DigestSet(root={"sha256": "abcd"})),
+                    Subject(name=None, digest=DigestSet(root={"sha256": "abcd"})),
                 ]
             )
             .predicate_type("foo")
@@ -281,12 +281,12 @@ class TestAttestation:
 
     def test_verify_subject_invalid_name(self) -> None:
         statement = (
-            _StatementBuilder()  # noqa: SLF001
+            StatementBuilder()  # noqa: SLF001
             .subjects(
                 [
-                    _Subject(
+                    Subject(
                         name="foo-bar-invalid-wheel.whl",
-                        digest=_DigestSet(root={"sha256": "abcd"}),
+                        digest=DigestSet(root={"sha256": "abcd"}),
                     ),
                 ]
             )
@@ -312,12 +312,12 @@ class TestAttestation:
 
     def test_verify_unknown_attestation_type(self) -> None:
         statement = (
-            _StatementBuilder()  # noqa: SLF001
+            StatementBuilder()  # noqa: SLF001
             .subjects(
                 [
-                    _Subject(
+                    Subject(
                         name="rfc8785-0.1.2-py3-none-any.whl",
-                        digest=_DigestSet(
+                        digest=DigestSet(
                             root={
                                 "sha256": (
                                     "c4e92e9ecc828bef2aa7dba1de8ac983511f7532a0df11c770d39099a25cf201"
