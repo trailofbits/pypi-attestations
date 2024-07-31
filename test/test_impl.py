@@ -497,7 +497,7 @@ class TestPublisher:
             "claims": {
                 "this": "is-preserved",
                 "this-too": 123,
-            }
+            },
         }
         pub = TypeAdapter(impl.Publisher).validate_python(raw)
 
