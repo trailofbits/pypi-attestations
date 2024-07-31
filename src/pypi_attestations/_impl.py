@@ -18,9 +18,9 @@ from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
+from sigstore.dsse import DigestSet, StatementBuilder, Subject, _Statement
 from sigstore.dsse import Envelope as DsseEnvelope
 from sigstore.dsse import Error as DsseError
-from sigstore.dsse import _DigestSet, _Statement, _StatementBuilder, _Subject
 from sigstore.models import Bundle, LogEntry
 from sigstore.sign import ExpiredCertificate, ExpiredIdentity
 from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
@@ -129,12 +129,12 @@ class Attestation(BaseModel):
         """
         try:
             stmt = (
-                _StatementBuilder()
+                StatementBuilder()
                 .subjects(
                     [
-                        _Subject(
+                        Subject(
                             name=dist.name,
-                            digest=_DigestSet(root={"sha256": dist.digest}),
+                            digest=DigestSet(root={"sha256": dist.digest}),
                         )
                     ]
                 )
