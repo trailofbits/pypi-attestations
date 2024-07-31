@@ -14,7 +14,8 @@ from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, field_validator
+from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, field_validator
+from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import DigestSet, StatementBuilder, Subject, _Statement
@@ -331,3 +332,83 @@ def _ultranormalize_dist_filename(dist: str) -> str:
         return f"{name}-{ver}.tar.gz"
     else:
         raise ValueError(f"unknown distribution format: {dist}")
+
+
+class _PublisherBase(BaseModel):
+    model_config = ConfigDict(alias_generator=to_snake)
+
+    kind: str
+    claims: dict[str, Any] | None = None
+
+
+class GitHubPublisher(_PublisherBase):
+    """A GitHub-based Trusted Publisher."""
+
+    kind: Literal["GitHub"] = "GitHub"
+
+    repository: str
+    """
+    The fully qualified publishing repository slug, e.g. `foo/bar` for
+    repository `bar` owned by `foo`.
+    """
+
+    workflow: str
+    """
+    The filename of the GitHub Actions workflow that performed the publishing
+    action.
+    """
+
+    environment: str | None = None
+    """
+    The optional name GitHub Actions environment that the publishing
+    action was performed from.
+    """
+
+
+class GitLabPublisher(_PublisherBase):
+    """A GitLab-based Trusted Publisher."""
+
+    kind: Literal["GitLab"] = "GitLab"
+
+    repository: str
+    """
+    The fully qualified publishing repository slug, e.g. `foo/bar` for
+    repository `bar` owned by `foo` or `foo/baz/bar` for repository
+    `bar` owned by group `foo` and subgroup `baz`.
+    """
+
+    environment: str | None = None
+    """
+    The optional environment that the publishing action was performed from.
+    """
+
+
+Publisher = Annotated[GitHubPublisher | GitLabPublisher, Field(discriminator="kind")]
+
+
+class AttestationBundle(BaseModel):
+    """AttestationBundle object as defined in PEP 740."""
+
+    publisher: Publisher
+    """
+    The publisher associated with this set of attestations.
+    """
+
+    attestations: list[Attestation]
+    """
+    The list of attestations included in this bundle.
+    """
+
+
+class Provenance(BaseModel):
+    """Provenance object as defined in PEP 740."""
+
+    version: Literal[1] = 1
+    """
+    The provenance object's version, which is always 1.
+    """
+
+    attestation_bundles: list[AttestationBundle]
+    """
+    One or more attestation "bundles".
+    """
