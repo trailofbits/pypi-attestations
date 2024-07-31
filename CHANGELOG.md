@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The minimum Python version required has been bumped to `3.11`
   ([#37](https://github.com/trailofbits/pypi-attestations/pull/37))
 
-- The `Provenance`, `Publisher`, `AttestationBundle` types have been added
+- The `Provenance`, `Publisher`, `GitHubPublisher`, `GitLabPublisher`, and
+  `AttestationBundle` types have been added
   ([#36](https://github.com/trailofbits/pypi-attestations/pull/36)).
-
 
 ## [0.0.9]
 
