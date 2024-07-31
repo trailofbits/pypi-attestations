@@ -1,5 +1,6 @@
 """Internal implementation tests."""
 
+import json
 import os
 from hashlib import sha256
 from pathlib import Path
@@ -8,7 +9,7 @@ import pretend
 import pypi_attestations._impl as impl
 import pytest
 import sigstore
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sigstore.dsse import _DigestSet, _StatementBuilder, _Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -464,17 +465,54 @@ def test_ultranormalize_dist_filename_invalid(input: str) -> None:
         impl._ultranormalize_dist_filename(input)
 
 
-def test_construct_provenance() -> None:
-    attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
+class TestPublisher:
+    def test_discriminator(self) -> None:
+        gh_raw = {"kind": "GitHub", "repository": "foo/bar", "workflow": "publish.yml"}
+        gh = TypeAdapter(impl.Publisher).validate_python(gh_raw)
 
-    publisher = impl.Publisher(kind="simple-publisher-url", claims=None)
-    provenance = impl.Provenance.construct_simple(publisher=publisher, attestations=[attestation])
+        assert isinstance(gh, impl.GitHubPublisher)
+        assert gh.repository == "foo/bar"
+        assert gh.workflow == "publish.yml"
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gh_raw)) == gh
 
-    assert provenance.version == 1
-    assert len(provenance.attestation_bundles) == 1
+        gl_raw = {"kind": "GitLab", "repository": "foo/bar/baz", "environment": "publish"}
+        gl = TypeAdapter(impl.Publisher).validate_python(gl_raw)
+        assert isinstance(gl, impl.GitLabPublisher)
+        assert gl.repository == "foo/bar/baz"
+        assert gl.environment == "publish"
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gl_raw)) == gl
 
-    bundle = provenance.attestation_bundles[0]
-    assert bundle.publisher.claims is None
-    assert bundle.publisher.kind == "simple-publisher-url"
+    def test_wrong_kind(self) -> None:
+        with pytest.raises(ValueError, match="Input should be 'GitHub'"):
+            impl.GitHubPublisher(kind="wrong", repository="foo/bar", workflow="publish.yml")
 
-    assert bundle.attestations == [attestation]
+        with pytest.raises(ValueError, match="Input should be 'GitLab'"):
+            impl.GitLabPublisher(kind="GitHub", repository="foo/bar")
+
+
+class TestProvenance:
+    def test_version(self) -> None:
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
+        provenance = impl.Provenance(
+            attestation_bundles=[
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(repository="foo/bar", workflow="publish.yml"),
+                    attestations=[attestation],
+                )
+            ]
+        )
+        assert provenance.version == 1
+
+        # Setting any other version doesn't work.
+        with pytest.raises(ValueError):
+            provenance = impl.Provenance(
+                version=2,
+                attestation_bundles=[
+                    impl.AttestationBundle(
+                        publisher=impl.GitHubPublisher(
+                            repository="foo/bar", workflow="publish.yml"
+                        ),
+                        attestations=[attestation],
+                    )
+                ],
+            )
