@@ -489,6 +489,23 @@ class TestPublisher:
         with pytest.raises(ValueError, match="Input should be 'GitLab'"):
             impl.GitLabPublisher(kind="GitHub", repository="foo/bar")
 
+    def test_claims(self) -> None:
+        raw = {
+            "kind": "GitHub",
+            "repository": "foo/bar",
+            "workflow": "publish.yml",
+            "claims": {
+                "this": "is-preserved",
+                "this-too": 123,
+            }
+        }
+        pub = TypeAdapter(impl.Publisher).validate_python(raw)
+
+        assert pub.claims == {
+            "this": "is-preserved",
+            "this-too": 123,
+        }
+
 
 class TestProvenance:
     def test_version(self) -> None:
