@@ -34,6 +34,8 @@ lint = [
     "types-requests",
     "types-toml",
     "interrogate",
+    # linting relies on test deps, since we also typecheck our test suite
+    "pypi-attestations[test]",
 ]
 dev = ["pypi-attestations[doc,test,lint]", "twine", "wheel", "build"]
 
