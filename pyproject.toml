@@ -37,7 +37,7 @@ lint = [
     # linting relies on test deps, since we also typecheck our test suite
     "pypi-attestations[test]",
 ]
-dev = ["pypi-attestations[doc,test,lint]", "twine", "wheel", "build"]
+dev = ["pypi-attestations[doc,test,lint]", "build"]
 
 
 [project.urls]
