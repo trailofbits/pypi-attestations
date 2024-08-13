@@ -54,6 +54,7 @@ omit = ["src/pypi_attestations/_cli.py", "src/pypi_attestations/__main__.py"]
 [tool.mypy]
 mypy_path = "src"
 packages = "pypi_attestations"
+plugins = ["pydantic.mypy"]
 allow_redefinition = true
 check_untyped_defs = true
 disallow_incomplete_defs = true
@@ -88,6 +89,7 @@ ignore = ["ANN101", "ANN102", "D203", "D213", "COM812", "ISC001"]
     "D",      # no docstrings in tests
     "S101",   # asserts are expected in tests
     "SLF001", # private APIs are expected in tests
+    "ANN401", # dynamic types are OK in tests
 ]
 
 [tool.interrogate]

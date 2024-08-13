@@ -54,7 +54,7 @@ lint: $(VENV)/pyvenv.cfg
 	. $(VENV_BIN)/activate && \
 		ruff format --check $(ALL_PY_SRCS) && \
 		ruff check $(ALL_PY_SRCS) && \
-		mypy
+		mypy src/ test/
 	. $(VENV_BIN)/activate && \
 		interrogate -c pyproject.toml .
 

@@ -4,12 +4,13 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 
 import pretend
 import pypi_attestations._impl as impl
 import pytest
 import sigstore
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -75,7 +76,7 @@ class TestAttestation:
     def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def dummy_predicate(self_: StatementBuilder, _: str) -> StatementBuilder:
             # wrong type here to have a validation error
-            self_._predicate_type = False
+            self_._predicate_type = False  # type: ignore[assignment]
             return self_
 
         monkeypatch.setattr(sigstore.dsse.StatementBuilder, "predicate_type", dummy_predicate)
@@ -100,7 +101,7 @@ class TestAttestation:
     def test_multiple_signatures(
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def get_bundle(*_) -> Bundle:  # noqa: ANN002
+        def get_bundle(*_: Any) -> Bundle:  # noqa: ANN002
             # Duplicate the signature to trigger a Conversion error
             bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
             bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
@@ -468,19 +469,21 @@ def test_ultranormalize_dist_filename_invalid(input: str) -> None:
 class TestPublisher:
     def test_discriminator(self) -> None:
         gh_raw = {"kind": "GitHub", "repository": "foo/bar", "workflow": "publish.yml"}
-        gh = TypeAdapter(impl.Publisher).validate_python(gh_raw)
+        gh = impl.Publisher.model_validate(gh_raw)
 
-        assert isinstance(gh, impl.GitHubPublisher)
-        assert gh.repository == "foo/bar"
-        assert gh.workflow == "publish.yml"
-        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gh_raw)) == gh
+        assert isinstance(gh, impl.Publisher)
+        assert isinstance(gh.root, impl.GitHubPublisher)
+        assert gh.root.repository == "foo/bar"
+        assert gh.root.workflow == "publish.yml"
+        assert impl.Publisher.model_validate_json(json.dumps(gh_raw)) == gh
 
         gl_raw = {"kind": "GitLab", "repository": "foo/bar/baz", "environment": "publish"}
-        gl = TypeAdapter(impl.Publisher).validate_python(gl_raw)
-        assert isinstance(gl, impl.GitLabPublisher)
-        assert gl.repository == "foo/bar/baz"
-        assert gl.environment == "publish"
-        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gl_raw)) == gl
+        gl = impl.Publisher.model_validate(gl_raw)
+        assert isinstance(gl, impl.Publisher)
+        assert isinstance(gl.root, impl.GitLabPublisher)
+        assert gl.root.repository == "foo/bar/baz"
+        assert gl.root.environment == "publish"
+        assert impl.Publisher.model_validate_json(json.dumps(gl_raw)) == gl
 
     def test_wrong_kind(self) -> None:
         with pytest.raises(ValueError, match="Input should be 'GitHub'"):
@@ -499,9 +502,9 @@ class TestPublisher:
                 "this-too": 123,
             },
         }
-        pub = TypeAdapter(impl.Publisher).validate_python(raw)
+        pub = impl.Publisher.model_validate(raw)
 
-        assert pub.claims == {
+        assert pub.root.claims == {
             "this": "is-preserved",
             "this-too": 123,
         }
