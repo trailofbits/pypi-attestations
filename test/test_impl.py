@@ -4,6 +4,7 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 
 import pretend
 import pypi_attestations._impl as impl
@@ -75,7 +76,7 @@ class TestAttestation:
     def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def dummy_predicate(self_: StatementBuilder, _: str) -> StatementBuilder:
             # wrong type here to have a validation error
-            self_._predicate_type = False
+            self_._predicate_type = False  # type: ignore[assignment]
             return self_
 
         monkeypatch.setattr(sigstore.dsse.StatementBuilder, "predicate_type", dummy_predicate)
@@ -100,7 +101,7 @@ class TestAttestation:
     def test_multiple_signatures(
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def get_bundle(*_) -> Bundle:  # noqa: ANN002
+        def get_bundle(*_: Any) -> Bundle:
             # Duplicate the signature to trigger a Conversion error
             bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
             bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
@@ -468,7 +469,7 @@ def test_ultranormalize_dist_filename_invalid(input: str) -> None:
 class TestPublisher:
     def test_discriminator(self) -> None:
         gh_raw = {"kind": "GitHub", "repository": "foo/bar", "workflow": "publish.yml"}
-        gh = TypeAdapter(impl.Publisher).validate_python(gh_raw)
+        gh: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(gh_raw)
 
         assert isinstance(gh, impl.GitHubPublisher)
         assert gh.repository == "foo/bar"
@@ -476,7 +477,7 @@ class TestPublisher:
         assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gh_raw)) == gh
 
         gl_raw = {"kind": "GitLab", "repository": "foo/bar/baz", "environment": "publish"}
-        gl = TypeAdapter(impl.Publisher).validate_python(gl_raw)
+        gl: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(gl_raw)
         assert isinstance(gl, impl.GitLabPublisher)
         assert gl.repository == "foo/bar/baz"
         assert gl.environment == "publish"
@@ -499,7 +500,7 @@ class TestPublisher:
                 "this-too": 123,
             },
         }
-        pub = TypeAdapter(impl.Publisher).validate_python(raw)
+        pub: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(raw)
 
         assert pub.claims == {
             "this": "is-preserved",
