@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- The type of `Publisher` has changed to `RootModel[...]`
-  ([#43](https://github.com/trailofbits/pypi-attestations/pull/43))
-
 ## [0.0.10]
 
 ### Changed
