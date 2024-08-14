@@ -101,7 +101,7 @@ class TestAttestation:
     def test_multiple_signatures(
         self, id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def get_bundle(*_: Any) -> Bundle:  # noqa: ANN002
+        def get_bundle(*_: Any) -> Bundle:
             # Duplicate the signature to trigger a Conversion error
             bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
             bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
