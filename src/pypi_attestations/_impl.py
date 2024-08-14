@@ -14,7 +14,7 @@ from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, RootModel, field_validator
+from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
@@ -383,7 +383,7 @@ class GitLabPublisher(_PublisherBase):
     """
 
 
-Publisher = RootModel[Annotated[GitHubPublisher | GitLabPublisher, Field(discriminator="kind")]]
+Publisher = Annotated[GitHubPublisher | GitLabPublisher, Field(discriminator="kind")]
 
 
 class AttestationBundle(BaseModel):

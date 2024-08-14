@@ -10,7 +10,7 @@ import pretend
 import pypi_attestations._impl as impl
 import pytest
 import sigstore
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -469,21 +469,19 @@ def test_ultranormalize_dist_filename_invalid(input: str) -> None:
 class TestPublisher:
     def test_discriminator(self) -> None:
         gh_raw = {"kind": "GitHub", "repository": "foo/bar", "workflow": "publish.yml"}
-        gh = impl.Publisher.model_validate(gh_raw)
+        gh: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(gh_raw)
 
-        assert isinstance(gh, impl.Publisher)
-        assert isinstance(gh.root, impl.GitHubPublisher)
-        assert gh.root.repository == "foo/bar"
-        assert gh.root.workflow == "publish.yml"
-        assert impl.Publisher.model_validate_json(json.dumps(gh_raw)) == gh
+        assert isinstance(gh, impl.GitHubPublisher)
+        assert gh.repository == "foo/bar"
+        assert gh.workflow == "publish.yml"
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gh_raw)) == gh
 
         gl_raw = {"kind": "GitLab", "repository": "foo/bar/baz", "environment": "publish"}
-        gl = impl.Publisher.model_validate(gl_raw)
-        assert isinstance(gl, impl.Publisher)
-        assert isinstance(gl.root, impl.GitLabPublisher)
-        assert gl.root.repository == "foo/bar/baz"
-        assert gl.root.environment == "publish"
-        assert impl.Publisher.model_validate_json(json.dumps(gl_raw)) == gl
+        gl: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(gl_raw)
+        assert isinstance(gl, impl.GitLabPublisher)
+        assert gl.repository == "foo/bar/baz"
+        assert gl.environment == "publish"
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gl_raw)) == gl
 
     def test_wrong_kind(self) -> None:
         with pytest.raises(ValueError, match="Input should be 'GitHub'"):
@@ -502,9 +500,9 @@ class TestPublisher:
                 "this-too": 123,
             },
         }
-        pub = impl.Publisher.model_validate(raw)
+        pub: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(raw)
 
-        assert pub.root.claims == {
+        assert pub.claims == {
             "this": "is-preserved",
             "this-too": 123,
         }
