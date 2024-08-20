@@ -255,7 +255,7 @@ class Attestation(BaseModel):
             verification_material=VerificationMaterial(
                 certificate=base64.b64encode(certificate),
                 transparency_entries=[
-                    TransparencyLogEntry(sigstore_bundle.log_entry._to_dict_rekor())  # noqa: SLF001
+                    sigstore_bundle.log_entry._to_rekor().to_dict()  # noqa: SLF001
                 ],
             ),
             envelope=Envelope(

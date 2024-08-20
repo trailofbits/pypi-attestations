@@ -8,9 +8,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pypi_attestations._cli
 import pytest
 import sigstore.oidc
+from sigstore.oidc import IdentityError
+
+import pypi_attestations._cli
 from pypi_attestations._cli import (
     _logger,
     _validate_files,
@@ -18,7 +20,6 @@ from pypi_attestations._cli import (
     main,
 )
 from pypi_attestations._impl import Attestation
-from sigstore.oidc import IdentityError
 
 ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
