@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pretend
-import pypi_attestations._impl as impl
 import pytest
 import sigstore
 from pydantic import TypeAdapter, ValidationError
@@ -16,6 +15,8 @@ from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
 from sigstore.sign import SigningContext
 from sigstore.verify import Verifier, policy
+
+import pypi_attestations._impl as impl
 
 ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
 
