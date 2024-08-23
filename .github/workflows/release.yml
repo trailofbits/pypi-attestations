@@ -33,7 +33,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
     - name: attest
-      uses: actions/attest@2da0b136720d14f01f4dbeeafd1d5a4d76cbe21d # v1
+      uses: actions/attest@67422f5511b7ff725f4dbd6fb9bd2cd925c65a8d # v1
       with:
         subject-path: |
           ./dist/*.tar.gz
