@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed
+
+- Base64-encoded bytes inside Attestation objects contained newline characters
+  every 76 characters due to a bug in Pydantic's Base64Bytes type. Those 
+  newlines were also (incorrectly) ignored by Pydantic during decoding
+  ([#48](https://github.com/trailofbits/pypi-attestations/pull/48)).
+
 ## [0.0.11]
 
 ## Changed

@@ -9,7 +9,7 @@ from typing import Any
 import pretend
 import pytest
 import sigstore
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -535,3 +535,20 @@ class TestProvenance:
                     )
                 ],
             )
+
+
+class TestModel(BaseModel):
+    base64_bytes: impl.Base64Bytes
+
+
+class TestBase64Bytes:
+    # See the docstrings for `_impl.Base64Bytes` for more details
+    def test_decoding(self) -> None:
+        # This raises when using our custom type. When using Pydantic's Base64Bytes,
+        # this succeeds
+        with pytest.raises(ValueError, match="Only base64 data is allowed"):
+            TestModel(base64_bytes=b"a\n\naaa")
+
+    def test_encoding(self) -> None:
+        model = TestModel(base64_bytes=b"aaaa" * 76)
+        assert "\\n" not in model.model_dump_json()
