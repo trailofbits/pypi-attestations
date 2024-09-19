@@ -7,16 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
+## [0.0.12]
+
+### Fixed
 
 - Base64-encoded bytes inside Attestation objects contained newline characters
-  every 76 characters due to a bug in Pydantic's Base64Bytes type. Those 
+  every 76 characters due to a bug in Pydantic's Base64Bytes type. Those
   newlines were also (incorrectly) ignored by Pydantic during decoding
   ([#48](https://github.com/trailofbits/pypi-attestations/pull/48)).
 
 ## [0.0.11]
 
-## Changed
+### Changed
 
 - The minimum version of sigstore-python is now `3.2.0`, owing to private
   API changes ([#45](https://github.com/trailofbits/pypi-attestations/pull/45))
@@ -128,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.11...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.12...HEAD
+[0.0.12]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.9...v0.0.10
 [0.0.9]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.8...v0.0.9
