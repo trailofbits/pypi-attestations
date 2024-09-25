@@ -1,7 +1,3 @@
-[build-system]
-requires = ["flit_core >=3.5,<4"]
-build-backend = "flit_core.buildapi"
-
 [project]
 name = "pypi-attestations"
 dynamic = ["version"]
@@ -17,10 +13,13 @@ dependencies = [
     "cryptography",
     "packaging",
     "pydantic",
-    "sigstore~=3.2",
+    "sigstore~=3.3",
     "sigstore-protobuf-specs",
 ]
 requires-python = ">=3.11"
+
+[tool.setuptools.dynamic]
+version = { attr = "pypi_attestations.__version__" }
 
 [project.optional-dependencies]
 doc = ["pdoc"]

@@ -537,7 +537,7 @@ class TestProvenance:
             )
 
 
-class TestModel(BaseModel):
+class DummyModel(BaseModel):
     base64_bytes: impl.Base64Bytes
 
 
@@ -547,8 +547,8 @@ class TestBase64Bytes:
         # This raises when using our custom type. When using Pydantic's Base64Bytes,
         # this succeeds
         with pytest.raises(ValueError, match="Only base64 data is allowed"):
-            TestModel(base64_bytes=b"a\n\naaa")
+            DummyModel(base64_bytes=b"a\n\naaa")
 
     def test_encoding(self) -> None:
-        model = TestModel(base64_bytes=b"aaaa" * 76)
+        model = DummyModel(base64_bytes=b"aaaa" * 76)
         assert "\\n" not in model.model_dump_json()
