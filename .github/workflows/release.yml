@@ -31,12 +31,5 @@ jobs:
 
     - name: publish
       uses: pypa/gh-action-pypi-publish@release/v1
-
-    - name: attest
-      uses: actions/attest@67422f5511b7ff725f4dbd6fb9bd2cd925c65a8d # v1
       with:
-        subject-path: |
-          ./dist/*.tar.gz
-          ./dist/*.whl
-        predicate-type: 'https://docs.pypi.org/attestations/publish/v1'
-        predicate: '{}'
+        attestations: true
