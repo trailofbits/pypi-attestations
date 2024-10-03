@@ -34,7 +34,7 @@ jobs:
 
 
   publish:
-    name: publish release to PyPI
+    name: Publish Python 🐍 distributions 📦 to PyPI
     runs-on: ubuntu-latest
     environment:
       name: pypi
