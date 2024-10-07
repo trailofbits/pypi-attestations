@@ -240,7 +240,9 @@ def _inspect(args: argparse.Namespace) -> None:
         certificate = x509.load_der_x509_certificate(verification_material.certificate)
         _logger.info("Certificate:")
         san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-        _logger.info(f"\tSubjects: {[name.value for name in san.value]}")
+        _logger.info(
+            f"\tSubjects (suitable for `--identity`): {[name.value for name in san.value]}"
+        )
         _logger.info(f"\tIssuer: {certificate.issuer.rfc4514_string()}")
         _logger.info(f"\tValidity: {certificate.not_valid_after_utc}")
 
