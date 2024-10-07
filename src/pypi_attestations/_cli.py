@@ -280,7 +280,6 @@ def _verify(args: argparse.Namespace) -> None:
             attestation.verify(verifier, pol, dist)
         except VerificationError as verification_error:
             _die(f"Verification failed for {file_path}: {verification_error}")
-            continue
 
         _logger.info(f"OK: {attestation_path}")
 
