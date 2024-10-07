@@ -191,15 +191,16 @@ def test_verify_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.Mo
 
     caplog.clear()
 
-    # Failure from the Sigstore environment
-    run_main_with_command(
-        [
-            "verify",
-            "--identity",
-            "william@yossarian.net",
-            artifact_path.as_posix(),
-        ]
-    )
+    with pytest.raises(SystemExit):
+        # Failure from the Sigstore environment
+        run_main_with_command(
+            [
+                "verify",
+                "--identity",
+                "william@yossarian.net",
+                artifact_path.as_posix(),
+            ]
+        )
     assert (
         "Verification failed: failed to build chain: unable to get local issuer certificate"
         in caplog.text

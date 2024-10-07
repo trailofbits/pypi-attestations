@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `python -m pypi_attestations verify` now exits with a non-zero exit code
+  if the verification step fails
+  ([#57](https://github.com/trailofbits/pypi-attestations/pull/57))
+
 ## [0.0.12]
 
 ### Fixed

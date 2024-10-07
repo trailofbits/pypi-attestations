@@ -13,6 +13,7 @@ jobs:
         python:
           - "3.11"
           - "3.12"
+          - "3.13"
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # unit tests use the ambient OIDC credential
@@ -24,6 +25,7 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: "pip"
           cache-dependency-path: pyproject.toml
+          allow-prereleases: true
 
       - name: test
         run: make test INSTALL_EXTRA=test
