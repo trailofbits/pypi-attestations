@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `python -m pypi_attestations verify` now handles inputs like `dist/*`
+  gracefully, by pre-filtering any attestation paths from the inputs.
+
 - `python -m pypi_attestations verify` now exits with a non-zero exit code
   if the verification step fails
   ([#57](https://github.com/trailofbits/pypi-attestations/pull/57))
