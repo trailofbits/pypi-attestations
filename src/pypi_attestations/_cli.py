@@ -264,22 +264,34 @@ def _verify(args: argparse.Namespace) -> None:
         should_exist=True,
     )
 
+    inputs: list[Path] = []
     for file_path in args.files:
-        attestation_path = Path(f"{file_path}.publish.attestation")
+        # Collect only the inputs themselves, not their attestations.
+        # Attestation paths are inferred subsequently.
+        if file_path.name.endswith(".publish.attestation"):
+            _logger.warning(f"skipping attestation path while collecting file inputs: {file_path}")
+            continue
+        inputs.append(file_path)
+
+    if not inputs:
+        _die("No inputs given; make sure you passed distributions and not attestations as inputs")
+
+    for input in inputs:
+        attestation_path = Path(f"{input}.publish.attestation")
         try:
             attestation = Attestation.model_validate_json(attestation_path.read_text())
         except ValidationError as validation_error:
-            _die(f"Invalid attestation ({file_path}): {validation_error}")
+            _die(f"Invalid attestation ({attestation_path}): {validation_error}")
 
         try:
-            dist = Distribution.from_file(file_path)
+            dist = Distribution.from_file(input)
         except ValidationError as e:
             _die(f"Invalid Python package distribution: {e}")
 
         try:
             attestation.verify(verifier, pol, dist)
         except VerificationError as verification_error:
-            _die(f"Verification failed for {file_path}: {verification_error}")
+            _die(f"Verification failed for {input}: {verification_error}")
 
         _logger.info(f"OK: {attestation_path}")
 
