@@ -11,7 +11,7 @@ from cryptography import x509
 from pydantic import ValidationError
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
-from sigstore.verify import Verifier, policy
+from sigstore.verify import policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
 from pypi_attestations._impl import Distribution
@@ -256,7 +256,6 @@ def _inspect(args: argparse.Namespace) -> None:
 
 def _verify(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
-    verifier: Verifier = Verifier.staging() if args.staging else Verifier.production()
     pol = policy.Identity(identity=args.identity)
 
     # Validate that both the attestations and files exists
@@ -291,7 +290,7 @@ def _verify(args: argparse.Namespace) -> None:
             _die(f"Invalid Python package distribution: {e}")
 
         try:
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=args.staging)
         except VerificationError as verification_error:
             _die(f"Verification failed for {input}: {verification_error}")
 
