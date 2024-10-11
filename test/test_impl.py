@@ -132,32 +132,8 @@ class TestAttestation:
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
-    def test_verify_from_github_publisher(self) -> None:
-        publisher = impl.GitHubPublisher(
-            repository="trailofbits/pypi-attestation-models",
-            workflow="release.yml",
-            claims={"ref": "refs/tags/v0.0.4a2"},
-        )
-
-        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
-        attestation = impl.Attestation.from_bundle(bundle)
-
-        predicate_type, predicate = attestation.verify(publisher, gh_signed_dist)
-        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
-        assert predicate == {}
-
-    @pytest.mark.parametrize(
-        "claims",
-        (
-            None,
-            {},
-            {"something": "other"},
-            {"ref": None},
-            {"sha": None},
-            {"ref": None, "sha": None},
-        ),
-    )
-    def test_verify_from_github_publisher_invalid_claims(self, claims: dict | None) -> None:
+    @pytest.mark.parametrize("claims", (None, {}, {"ref": "refs/tags/v0.0.4a2"}))
+    def test_verify_from_github_publisher(self, claims: dict | None) -> None:
         publisher = impl.GitHubPublisher(
             repository="trailofbits/pypi-attestation-models",
             workflow="release.yml",
@@ -167,8 +143,9 @@ class TestAttestation:
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
         attestation = impl.Attestation.from_bundle(bundle)
 
-        with pytest.raises(impl.VerificationError, match="refusing to build a policy"):
-            attestation.verify(publisher, gh_signed_dist)
+        predicate_type, predicate = attestation.verify(publisher, gh_signed_dist)
+        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
+        assert predicate == {}
 
     def test_verify(self) -> None:
         # Our checked-in asset has this identity.
