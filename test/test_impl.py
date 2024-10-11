@@ -559,6 +559,21 @@ class TestPublisher:
         }
 
 
+class TestGitLabPublisher:
+    def test_as_policy(self) -> None:
+        publisher = impl.GitLabPublisher(repository="fake/fake", claims={"ref": "refs/heads/main"})
+        pol: policy.AllOf = publisher._as_policy()  # type: ignore[assignment]
+
+        assert len(pol._children) == 3
+
+    @pytest.mark.parametrize("claims", [None, {}, {"something": "unrelated"}, {"ref": None}])
+    def test_as_policy_invalid(self, claims: dict | None) -> None:
+        publisher = impl.GitLabPublisher(repository="fake/fake", claims=claims)
+
+        with pytest.raises(impl.VerificationError, match="refusing to build a policy"):
+            publisher._as_policy()
+
+
 class TestProvenance:
     def test_version(self) -> None:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
