@@ -23,7 +23,7 @@ from sigstore.dsse import Envelope as DsseEnvelope
 from sigstore.dsse import Error as DsseError
 from sigstore.models import Bundle, LogEntry
 from sigstore.sign import ExpiredCertificate, ExpiredIdentity
-from sigstore.verify import Verifier  # pragma: no cover
+from sigstore.verify import Verifier, policy
 from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
 from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
@@ -180,15 +180,31 @@ class Attestation(BaseModel):
 
     def verify(
         self,
-        policy: VerificationPolicy,
+        identity: VerificationPolicy | Publisher,
         dist: Distribution,
         *,
         staging: bool = False,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
+        The `identity` can be an object confirming to
+        `sigstore.policy.VerificationPolicy` or a `Publisher`, which will be
+        transformed into an appropriate verification policy.
+
+        By default, Sigstore's production verifier will be used. The
+        `staging` parameter can be toggled to enable the staging verifier
+        instead.
+
         On failure, raises an appropriate subclass of `AttestationError`.
         """
+        # NOTE: Can't do `isinstance` with `Publisher` since it's
+        # a `_GenericAlias`; instead we punch through to the inner
+        # `_Publisher` union.
+        if isinstance(identity, _Publisher):
+            policy = identity._as_policy()  # noqa: SLF001
+        else:
+            policy = identity
+
         if staging:
             verifier = Verifier.staging()
         else:
@@ -370,6 +386,10 @@ class _PublisherBase(BaseModel):
     kind: str
     claims: dict[str, Any] | None = None
 
+    def _as_policy(self) -> VerificationPolicy:
+        """Return an appropriate `sigstore.policy.VerificationPolicy` for this publisher."""
+        raise NotImplementedError
+
 
 class GitHubPublisher(_PublisherBase):
     """A GitHub-based Trusted Publisher."""
@@ -394,6 +414,33 @@ class GitHubPublisher(_PublisherBase):
     action was performed from.
     """
 
+    def _as_policy(self) -> VerificationPolicy:
+        policies: list[VerificationPolicy] = [
+            policy.OIDCIssuerV2("https://token.actions.githubusercontent.com"),
+            policy.OIDCSourceRepositoryURI(f"https://github.com/{self.repository}"),
+        ]
+
+        if not self.claims:
+            raise VerificationError("refusing to build a policy without claims")
+
+        sha = self.claims.get("sha")
+        ref = self.claims.get("ref")
+        if not (sha or ref):
+            # This should never happen, since we should always _at least_ have
+            # the `sha` claim.
+            raise VerificationError("refusing to build a policy without a sha or ref claim")
+
+        expected_build_configs: list[VerificationPolicy] = [
+            policy.OIDCBuildConfigURI(
+                f"https://github.com/{self.repository}/.github/workflows/{self.workflow}@{claim}"
+            )
+            for claim in [ref, sha]
+            if claim is not None
+        ]
+        policies.append(policy.AnyOf(expected_build_configs))
+
+        return policy.AllOf(policies)
+
 
 class GitLabPublisher(_PublisherBase):
     """A GitLab-based Trusted Publisher."""
@@ -412,8 +459,29 @@ class GitLabPublisher(_PublisherBase):
     The optional environment that the publishing action was performed from.
     """
 
+    def _as_policy(self) -> VerificationPolicy:
+        policies: list[VerificationPolicy] = [
+            policy.OIDCIssuerV2("https://gitlab.com"),
+            policy.OIDCSourceRepositoryURI(f"https://gitlab.com/{self.repository}"),
+        ]
 
-Publisher = Annotated[GitHubPublisher | GitLabPublisher, Field(discriminator="kind")]
+        if not self.claims:
+            raise VerificationError("refusing to build a policy without claims")
+
+        if ref := self.claims.get("ref"):
+            policies.append(
+                policy.OIDCBuildConfigURI(
+                    f"https://gitlab.com/{self.repository}//.gitlab-ci.yml@{ref}"
+                )
+            )
+        else:
+            raise VerificationError("refusing to build a policy without a ref claim")
+
+        return policy.AllOf(policies)
+
+
+_Publisher = GitHubPublisher | GitLabPublisher
+Publisher = Annotated[_Publisher, Field(discriminator="kind")]
 
 
 class AttestationBundle(BaseModel):
