@@ -404,11 +404,10 @@ class _GitHubTrustedPublisherPolicy:
     @classmethod
     def _der_decode_utf8string(cls, der: bytes) -> str:
         """Decode a DER-encoded UTF8String."""
-        return der_decode(der, UTF8String)[0].decode()
+        return der_decode(der, UTF8String)[0].decode()  # type: ignore[no-any-return]
 
     def verify(self, cert: Certificate) -> None:
-        """Foo."""
-
+        """Verify the certificate against the Trusted Publisher identity."""
         # This process has a few annoying steps, since a Trusted Publisher
         # isn't aware of the commit or ref it runs on, while Sigstore's
         # leaf certificate claims (like GitHub Actions' OIDC claims) only
@@ -428,18 +427,18 @@ class _GitHubTrustedPublisherPolicy:
         #  where OWNER/REPO and WORKFLOW are controlled by the TP identity,
         #  and REF is controlled by the certificate's own claims.
         build_config_uri = cert.extensions.get_extension_for_oid(policy._OIDC_BUILD_CONFIG_URI_OID)  # noqa: SLF001
-        raw_build_config_uri = self._der_decode_utf8string(build_config_uri.value.value)
+        raw_build_config_uri = self._der_decode_utf8string(build_config_uri.value.public_bytes())
 
         # (2) Extract the source repo digest and ref.
         source_repo_digest = cert.extensions.get_extension_for_oid(
             policy._OIDC_BUILD_SIGNER_DIGEST_OID  # noqa: SLF001
         )
-        sha = self._der_decode_utf8string(source_repo_digest.value.value)
+        sha = self._der_decode_utf8string(source_repo_digest.value.public_bytes())
 
         source_repo_ref = cert.extensions.get_extension_for_oid(
             policy._OIDC_SOURCE_REPOSITORY_REF_OID  # noqa: SLF001
         )
-        ref = self._der_decode_utf8string(source_repo_ref.value.value)
+        ref = self._der_decode_utf8string(source_repo_ref.value.public_bytes())
 
         # (3)-(4): Build the expected URIs and compare them
         for suffix in [sha, ref]:
