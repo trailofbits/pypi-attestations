@@ -23,6 +23,7 @@ from sigstore.dsse import Envelope as DsseEnvelope
 from sigstore.dsse import Error as DsseError
 from sigstore.models import Bundle, LogEntry
 from sigstore.sign import ExpiredCertificate, ExpiredIdentity
+from sigstore.verify import Verifier  # pragma: no cover
 from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
 from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
     from pathlib import Path  # pragma: no cover
 
     from sigstore.sign import Signer  # pragma: no cover
-    from sigstore.verify import Verifier  # pragma: no cover
     from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
 
 
@@ -180,14 +180,20 @@ class Attestation(BaseModel):
 
     def verify(
         self,
-        verifier: Verifier,
         policy: VerificationPolicy,
         dist: Distribution,
+        *,
+        staging: bool = False,
     ) -> tuple[str, dict[str, Any] | None]:
         """Verify against an existing Python distribution.
 
         On failure, raises an appropriate subclass of `AttestationError`.
         """
+        if staging:
+            verifier = Verifier.staging()
+        else:
+            verifier = Verifier.production()
+
         bundle = self.to_bundle()
         try:
             type_, payload = verifier.verify_dsse(bundle, policy)
