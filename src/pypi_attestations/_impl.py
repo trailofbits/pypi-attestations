@@ -388,7 +388,7 @@ class _PublisherBase(BaseModel):
 
     def _as_policy(self) -> VerificationPolicy:
         """Return an appropriate `sigstore.policy.VerificationPolicy` for this publisher."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class GitHubPublisher(_PublisherBase):
