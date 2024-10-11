@@ -29,12 +29,12 @@ from sigstore.verify import Verifier, policy
 from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
 from sigstore_protobuf_specs.io.intoto import Signature as _Signature
 
-if TYPE_CHECKING:
-    from pathlib import Path  # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
+    from pathlib import Path
 
     from cryptography.x509 import Certificate
-    from sigstore.sign import Signer  # pragma: no cover
-    from sigstore.verify.policy import VerificationPolicy  # pragma: no cover
+    from sigstore.sign import Signer
+    from sigstore.verify.policy import VerificationPolicy
 
 
 class Base64EncoderSansNewline(Base64Encoder):
@@ -449,7 +449,7 @@ class _GitHubTrustedPublisherPolicy:
                 return
 
         # If none of the expected URIs matched, the policy fails.
-        raise ValidationError(
+        raise sigstore.errors.VerificationError(
             f"Certificate's Build Config URI ({build_config_uri}) does not match expected "
             f"Trusted Publisher ({self._workflow} @ {self._repository})"
         )

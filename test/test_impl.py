@@ -147,6 +147,18 @@ class TestAttestation:
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
+    def test_verify_from_github_publisher_wrong(self) -> None:
+        publisher = impl.GitHubPublisher(
+            repository="trailofbits/pypi-attestation-models",
+            workflow="wrong.yml",
+        )
+
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+
+        with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
+            attestation.verify(publisher, gh_signed_dist)
+
     def test_verify(self) -> None:
         # Our checked-in asset has this identity.
         pol = policy.Identity(
