@@ -431,7 +431,7 @@ class _GitHubTrustedPublisherPolicy:
 
         # (2) Extract the source repo digest and ref.
         source_repo_digest = cert.extensions.get_extension_for_oid(
-            policy._OIDC_BUILD_SIGNER_DIGEST_OID  # noqa: SLF001
+            policy._OIDC_SOURCE_REPOSITORY_DIGEST_OID  # noqa: SLF001
         )
         sha = self._der_decode_utf8string(source_repo_digest.value.public_bytes())
 
