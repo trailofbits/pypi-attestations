@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, get_args
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
@@ -187,7 +187,7 @@ class Attestation(BaseModel):
         dist: Distribution,
         *,
         staging: bool = False,
-    ) -> tuple[str, dict[str, Any] | None]:
+    ) -> tuple[str, Optional[dict[str, Any]]]:
         """Verify against an existing Python distribution.
 
         The `identity` can be an object confirming to
@@ -203,7 +203,8 @@ class Attestation(BaseModel):
         # NOTE: Can't do `isinstance` with `Publisher` since it's
         # a `_GenericAlias`; instead we punch through to the inner
         # `_Publisher` union.
-        if isinstance(identity, _Publisher):
+        # Use of typing.get_args is needed for Python < 3.10
+        if isinstance(identity, get_args(_Publisher)):
             policy = identity._as_policy()  # noqa: SLF001
         else:
             policy = identity
@@ -387,7 +388,7 @@ class _PublisherBase(BaseModel):
     model_config = ConfigDict(alias_generator=to_snake)
 
     kind: str
-    claims: dict[str, Any] | None = None
+    claims: Optional[dict[str, Any]] = None
 
     def _as_policy(self) -> VerificationPolicy:
         """Return an appropriate `sigstore.policy.VerificationPolicy` for this publisher."""
@@ -483,7 +484,7 @@ class GitHubPublisher(_PublisherBase):
     action.
     """
 
-    environment: str | None = None
+    environment: Optional[str] = None
     """
     The optional name GitHub Actions environment that the publishing
     action was performed from.
@@ -505,7 +506,7 @@ class GitLabPublisher(_PublisherBase):
     `bar` owned by group `foo` and subgroup `baz`.
     """
 
-    environment: str | None = None
+    environment: Optional[str] = None
     """
     The optional environment that the publishing action was performed from.
     """
@@ -531,7 +532,7 @@ class GitLabPublisher(_PublisherBase):
         return policy.AllOf(policies)
 
 
-_Publisher = GitHubPublisher | GitLabPublisher
+_Publisher = Union[GitHubPublisher, GitLabPublisher]
 Publisher = Annotated[_Publisher, Field(discriminator="kind")]
 
 

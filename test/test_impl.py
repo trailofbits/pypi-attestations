@@ -4,7 +4,7 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pretend
 import pytest
@@ -133,7 +133,7 @@ class TestAttestation:
         assert predicate == {}
 
     @pytest.mark.parametrize("claims", (None, {}, {"ref": "refs/tags/v0.0.4a2"}))
-    def test_verify_from_github_publisher(self, claims: dict | None) -> None:
+    def test_verify_from_github_publisher(self, claims: Optional[dict]) -> None:
         publisher = impl.GitHubPublisher(
             repository="trailofbits/pypi-attestation-models",
             workflow="release.yml",
@@ -556,7 +556,7 @@ class TestGitLabPublisher:
         assert len(pol._children) == 3
 
     @pytest.mark.parametrize("claims", [None, {}, {"something": "unrelated"}, {"ref": None}])
-    def test_as_policy_invalid(self, claims: dict | None) -> None:
+    def test_as_policy_invalid(self, claims: Optional[dict]) -> None:
         publisher = impl.GitLabPublisher(repository="fake/fake", claims=claims)
 
         with pytest.raises(impl.VerificationError, match="refusing to build a policy"):
@@ -600,7 +600,8 @@ class TestBase64Bytes:
     def test_decoding(self) -> None:
         # This raises when using our custom type. When using Pydantic's Base64Bytes,
         # this succeeds
-        with pytest.raises(ValueError, match="Only base64 data is allowed"):
+        # The exception message is different in Python 3.9 vs >=3.10
+        with pytest.raises(ValueError, match="Non-base64 digit found|Only base64 data is allowed"):
             DummyModel(base64_bytes=b"a\n\naaa")
 
     def test_encoding(self) -> None:
