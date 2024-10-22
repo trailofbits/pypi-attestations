@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The minimum Python version required has been brought back to `3.9`
   ([#64](https://github.com/trailofbits/pypi-attestations/pull/64)).
 
+- The `Attestation.verify(...)` API has been changed to remove the `Verifier`
+  argument in favor of an optional `staging: bool` kwarg to select the
+  Sigstore instance
+  ([#62](https://github.com/trailofbits/pypi-attestations/pull/62))
+
+- The `Attestation.verify(...)` API has been changed to accept both `Publisher`
+  and `VerificationPolicy` objects as a policy. The publisher object is internally
+  converted to an appropriate verification policy.
+
 ### Fixed
 
 - `python -m pypi_attestations verify` now handles inputs like `dist/*`
