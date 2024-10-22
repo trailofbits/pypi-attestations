@@ -12,8 +12,9 @@ classifiers = [
 dependencies = [
     "cryptography",
     "packaging",
+    "pyasn1 ~= 0.6",
     "pydantic",
-    "sigstore~=3.3",
+    "sigstore~=3.4",
     "sigstore-protobuf-specs",
 ]
 requires-python = ">=3.11"
