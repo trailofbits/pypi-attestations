@@ -406,7 +406,7 @@ class _GitHubTrustedPublisherPolicy:
         self._subpolicy = policy.AllOf(
             [
                 policy.OIDCIssuerV2("https://token.actions.githubusercontent.com"),
-                policy.OIDCSourceRepositoryURI(f"https://github.com/{self.repository}"),
+                policy.OIDCSourceRepositoryURI(f"https://github.com/{self._repository}"),
             ]
         )
 
@@ -417,7 +417,7 @@ class _GitHubTrustedPublisherPolicy:
 
     def verify(self, cert: Certificate) -> None:
         """Verify the certificate against the Trusted Publisher identity."""
-        self._subpolicy.verify()
+        self._subpolicy.verify(cert)
 
         # This process has a few annoying steps, since a Trusted Publisher
         # isn't aware of the commit or ref it runs on, while Sigstore's
