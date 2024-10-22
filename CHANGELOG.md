@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.13]
+
+### Changed
+
+- The minimum Python version required has been brought back to `3.9`
+  ([#64](https://github.com/trailofbits/pypi-attestations/pull/64)).
+
 ### Fixed
 
 - `python -m pypi_attestations verify` now handles inputs like `dist/*`
@@ -139,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.12...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.13...HEAD
+[0.0.13]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.9...v0.0.10

@@ -17,7 +17,7 @@ dependencies = [
     "sigstore~=3.4",
     "sigstore-protobuf-specs",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 
 [tool.setuptools.dynamic]
 version = { attr = "pypi_attestations.__version__" }
@@ -57,6 +57,7 @@ omit = ["src/pypi_attestations/_cli.py", "src/pypi_attestations/__main__.py"]
 mypy_path = "src"
 packages = "pypi_attestations"
 plugins = ["pydantic.mypy"]
+python_version = "3.9"
 allow_redefinition = true
 check_untyped_defs = true
 disallow_incomplete_defs = true
@@ -75,7 +76,7 @@ warn_unused_ignores = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "ANN", "D", "COM", "ISC", "TCH", "SLF"]
@@ -84,6 +85,9 @@ select = ["E", "F", "I", "W", "UP", "ANN", "D", "COM", "ISC", "TCH", "SLF"]
 # COM812 and ISC001 can cause conflicts when using ruff as a formatter.
 # See https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules.
 ignore = ["ANN101", "ANN102", "D203", "D213", "COM812", "ISC001"]
+# Needed since Pydantic relies on runtime type annotations, and we target Python versions
+# < 3.10. See https://docs.astral.sh/ruff/rules/non-pep604-annotation/#why-is-this-bad
+pyupgrade.keep-runtime-typing = true
 
 [tool.ruff.lint.per-file-ignores]
 
