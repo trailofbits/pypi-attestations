@@ -400,6 +400,15 @@ class _GitHubTrustedPublisherPolicy:
     def __init__(self, repository: str, workflow: str) -> None:
         self._repository = repository
         self._workflow = workflow
+        # This policy must also satisfy some baseline underlying policies:
+        # the issuer must be GitHub Actions, and the repo must be the one
+        # we expect.
+        self._subpolicy = policy.AllOf(
+            [
+                policy.OIDCIssuerV2("https://token.actions.githubusercontent.com"),
+                policy.OIDCSourceRepositoryURI(f"https://github.com/{self.repository}"),
+            ]
+        )
 
     @classmethod
     def _der_decode_utf8string(cls, der: bytes) -> str:
@@ -408,6 +417,8 @@ class _GitHubTrustedPublisherPolicy:
 
     def verify(self, cert: Certificate) -> None:
         """Verify the certificate against the Trusted Publisher identity."""
+        self._subpolicy.verify()
+
         # This process has a few annoying steps, since a Trusted Publisher
         # isn't aware of the commit or ref it runs on, while Sigstore's
         # leaf certificate claims (like GitHub Actions' OIDC claims) only
@@ -479,13 +490,7 @@ class GitHubPublisher(_PublisherBase):
     """
 
     def _as_policy(self) -> VerificationPolicy:
-        policies: list[VerificationPolicy] = [
-            policy.OIDCIssuerV2("https://token.actions.githubusercontent.com"),
-            policy.OIDCSourceRepositoryURI(f"https://github.com/{self.repository}"),
-            _GitHubTrustedPublisherPolicy(self.repository, self.workflow),
-        ]
-
-        return policy.AllOf(policies)
+        return _GitHubTrustedPublisherPolicy(self.repository, self.workflow)
 
 
 class GitLabPublisher(_PublisherBase):
