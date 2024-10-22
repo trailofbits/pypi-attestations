@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `Attestation.verify(...)` API has been changed to accept both `Publisher`
   and `VerificationPolicy` objects as a policy. The publisher object is internally
   converted to an appropriate verification policy.
+
 ### Fixed
 
 - `python -m pypi_attestations verify` now handles inputs like `dist/*`
