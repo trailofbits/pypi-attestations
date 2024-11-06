@@ -501,6 +501,7 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
         "foo",
         # suffixes must be lowercase
         "foo-1.0.TAR.GZ",
+        "foo-1.0.ZIP",
         "foo-1.0-py3-none-any.WHL",
         # wheel: invalid separator in dist name
         "foo-bar-1.0-py3-none-any.whl",
@@ -511,6 +512,13 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
         # sdist: invalid version
         "foo-charmander.tar.gz",
         "foo-1charmander.tar.gz",
+        "foo-charmander.zip",
+        "foo-1charmander.zip",
+        # sdist: nonsense suffixes
+        "foo-1.2.3.junk.zip",
+        "foo-1.2.3.junk.tar.gz",
+        "foo-1.2.3.zip.tar.gz",
+        "foo-1.2.3.tar.gz.zip",
     ],
 )
 def test_ultranormalize_dist_filename_invalid(input: str) -> None:
