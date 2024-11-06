@@ -457,10 +457,14 @@ class TestPackaging:
         ("foo-1.0-py3-none.none.none-any.whl", "foo-1.0-py3-none-any.whl"),
         # sdist: fully normalized, no changes
         ("foo-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("foo-1.0.zip", "foo-1.0.zip"),
         # sdist: dist name is not case normalized
         ("Foo-1.0.tar.gz", "foo-1.0.tar.gz"),
         ("FOO-1.0.tar.gz", "foo-1.0.tar.gz"),
         ("FoO-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("Foo-1.0.zip", "foo-1.0.zip"),
+        ("FOO-1.0.zip", "foo-1.0.zip"),
+        ("FoO-1.0.zip", "foo-1.0.zip"),
         # sdist: dist name contains alternate separators, including
         # `-` despite being forbidden by PEP 625
         ("foo-bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
@@ -469,9 +473,17 @@ class TestPackaging:
         ("foo.bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
         ("foo..bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
         ("foo.bar.baz-1.0.tar.gz", "foo_bar_baz-1.0.tar.gz"),
+        ("foo-bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo-bar-baz-1.0.zip", "foo_bar_baz-1.0.zip"),
+        ("foo--bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo.bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo..bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo.bar.baz-1.0.zip", "foo_bar_baz-1.0.zip"),
         # sdist: dist version is not normalized
         ("foo-1.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
         ("foo-01.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
+        ("foo-1.0beta1.zip", "foo-1.0b1.zip"),
+        ("foo-01.0beta1.zip", "foo-1.0b1.zip"),
     ],
 )
 def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
