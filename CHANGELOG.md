@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The `Distribution` API now handles ZIP source distributions
-  (those ending with `.zip`) instead of rejecting them as invalid.
+  (those ending with `.zip`) instead of rejecting them as invalid
+  ([#68](https://github.com/trailofbits/pypi-attestations/pull/68))
 
 ## [0.0.13]
 
