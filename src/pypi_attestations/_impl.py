@@ -374,12 +374,15 @@ def _ultranormalize_dist_filename(dist: str) -> str:
             parts = "-".join([name, str(ver), impl_tag, abi_tag, platform_tag])
 
         return f"{parts}.whl"
-
-    elif dist.endswith(".tar.gz"):
+    elif dist.endswith((".tar.gz", ".zip")):
         # `parse_sdist_filename` raises a supertype of ValueError on failure.
         name, ver = parse_sdist_filename(dist)
         name = name.replace("-", "_")
-        return f"{name}-{ver}.tar.gz"
+
+        if dist.endswith(".tar.gz"):
+            return f"{name}-{ver}.tar.gz"
+        else:
+            return f"{name}-{ver}.zip"
     else:
         raise ValueError(f"unknown distribution format: {dist}")
 
