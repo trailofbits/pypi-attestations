@@ -6,6 +6,7 @@ This module is NOT a public API, and is not considered stable.
 from __future__ import annotations
 
 import base64
+import json
 from enum import Enum
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, get_args
 
@@ -147,6 +148,15 @@ class Attestation(BaseModel):
     """
     The enveloped attestation statement and signature.
     """
+
+    @property
+    def statement(self) -> dict[str, Any]:
+        """Return the statement within this attestation's envelope.
+
+        The value returned here is a dictionary, in the shape of an
+        in-toto statement.
+        """
+        return json.loads(self.envelope.statement)
 
     @classmethod
     def sign(cls, signer: Signer, dist: Distribution) -> Attestation:

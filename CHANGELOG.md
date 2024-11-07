@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Attestation.statement` has been added as a convenience API for accessing
+  the attestation's enveloped statement as a dictionary
+
 ## [0.0.15]
 
 This is a corrective release for [0.0.14].

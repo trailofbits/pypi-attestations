@@ -168,8 +168,13 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
         predicate_type, predicate = attestation.verify(pol, dist, staging=True)
 
-        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
-        assert predicate is None
+        assert attestation.statement["_type"] == "https://in-toto.io/Statement/v1"
+        assert (
+            predicate_type
+            == attestation.statement["predicateType"]
+            == "https://docs.pypi.org/attestations/publish/v1"
+        )
+        assert predicate is None and attestation.statement["predicate"] is None
 
         # convert the attestation to a bundle and verify it that way too
         bundle = attestation.to_bundle()
