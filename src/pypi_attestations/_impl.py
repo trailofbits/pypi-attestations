@@ -156,7 +156,7 @@ class Attestation(BaseModel):
         The value returned here is a dictionary, in the shape of an
         in-toto statement.
         """
-        return json.loads(self.envelope.statement)
+        return json.loads(self.envelope.statement)  # type: ignore[no-any-return]
 
     @classmethod
     def sign(cls, signer: Signer, dist: Distribution) -> Attestation:
