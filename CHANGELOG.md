@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `Attestation` type now have a `claims` property to expose underlying Fulcio 
+  signing certificate extensions
+  ([#XX](https://github.com/trailofbits/pypi-attestations/pull/XX))
+
+
 ## [0.0.11]
 
-## Changed
+### Changed
 
 - The minimum version of sigstore-python is now `3.2.0`, owing to private
   API changes ([#45](https://github.com/trailofbits/pypi-attestations/pull/45))

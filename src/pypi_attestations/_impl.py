@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, cast
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
+from pyasn1.codec.der.decoder import decode as der_decode
+from pyasn1.type.char import UTF8String
 from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
@@ -153,6 +155,31 @@ class Attestation(BaseModel):
             return Attestation.from_bundle(bundle)
         except ConversionError as e:
             raise AttestationError(str(e))
+
+    @property
+    def claims(self) -> dict[x509.ObjectIdentifier, str]:
+        """Returns the claims present in the Certificate that matches Fulcio OID.
+
+        The complete list is avaible on Fulcio documentation but we only return
+        non deprecated extensions (from 1.3.6.1.4.1.57264.1.8 to .22):
+        https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
+
+        Values are decoded and returned as strings.
+        """
+        fulcio_oid = x509.ObjectIdentifier("1.3.6.1.4.1.57264.1")
+        certificate = x509.load_der_x509_certificate(self.verification_material.certificate)
+        claims = {}
+        for extension in certificate.extensions:
+            identifier = int(extension.oid.dotted_string.rsplit(".", 1)[1])
+            if (
+                extension.oid.dotted_string.startswith(fulcio_oid.dotted_string)
+                and 8 <= identifier <= 22
+            ):
+                # 1.3.6.1.4.1.57264.1.8 through 1.3.6.1.4.1.57264.1.22 are formatted as DER-encoded
+                # strings; the ASN.1 tag is UTF8String (0x0C) and the tag class is universal.
+                value = extension.value.value
+                claims[extension.oid] = cast(bytes, der_decode(value, UTF8String)[0]).decode()
+        return claims
 
     def verify(
         self,

@@ -29,6 +29,7 @@ dist_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
 dist = impl.Distribution.from_file(dist_path)
 dist_bundle_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.sigstore"
 dist_attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.attestation"
+pypi_attestations_attestation = _ASSETS / "pypi_attestations-0.0.16.tar.gz.attestation"
 
 # produced by actions/attest@v1
 gh_signed_dist_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz"
@@ -349,6 +350,42 @@ class TestAttestation:
 
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
             attestation.verify(verifier, pol, dist)
+
+    def test_claims(self) -> None:
+        attestation = impl.Attestation.model_validate_json(
+            pypi_attestations_attestation.read_text()
+        )
+
+        results = {
+            ("1.3.6.1.4.1.57264.1.8", "https://token.actions.githubusercontent.com"),
+            (
+                "1.3.6.1.4.1.57264.1.9",
+                "https://github.com/trailofbits/pypi-attestations/.github/workflows/release.yml@refs/tags/v0.0.16",
+            ),
+            ("1.3.6.1.4.1.57264.1.10", "58c872e67c03c9c031ba71b1654ff542ff290cd7"),
+            ("1.3.6.1.4.1.57264.1.11", "github-hosted"),
+            ("1.3.6.1.4.1.57264.1.12", "https://github.com/trailofbits/pypi-attestations"),
+            ("1.3.6.1.4.1.57264.1.13", "58c872e67c03c9c031ba71b1654ff542ff290cd7"),
+            ("1.3.6.1.4.1.57264.1.14", "refs/tags/v0.0.16"),
+            ("1.3.6.1.4.1.57264.1.15", "772247423"),
+            ("1.3.6.1.4.1.57264.1.16", "https://github.com/trailofbits"),
+            ("1.3.6.1.4.1.57264.1.17", "2314423"),
+            (
+                "1.3.6.1.4.1.57264.1.18",
+                "https://github.com/trailofbits/pypi-attestations/.github/workflows/release.yml@refs/tags/v0.0.16",
+            ),
+            ("1.3.6.1.4.1.57264.1.19", "58c872e67c03c9c031ba71b1654ff542ff290cd7"),
+            ("1.3.6.1.4.1.57264.1.20", "release"),
+            (
+                "1.3.6.1.4.1.57264.1.21",
+                "https://github.com/trailofbits/pypi-attestations/actions/runs/11732568384/attempts/1",
+            ),
+            ("1.3.6.1.4.1.57264.1.22", "public"),
+        }
+
+        assert not results ^ {
+            (key.dotted_string, value) for key, value in attestation.claims.items()
+        }
 
 
 def test_from_bundle_missing_signatures() -> None:
