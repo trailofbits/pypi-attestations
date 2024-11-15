@@ -4,12 +4,12 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pretend
 import pytest
 import sigstore
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -60,20 +60,19 @@ class TestAttestation:
     @online
     def test_roundtrip(self, id_token: IdentityToken) -> None:
         sign_ctx = SigningContext.staging()
-        verifier = Verifier.staging()
 
         with sign_ctx.signer(id_token) as signer:
             attestation = impl.Attestation.sign(signer, dist)
 
-        attestation.verify(verifier, policy.UnsafeNoOp(), dist)
+        attestation.verify(policy.UnsafeNoOp(), dist, staging=True)
 
         # converting to a bundle and verifying as a bundle also works
         bundle = attestation.to_bundle()
-        verifier.verify_dsse(bundle, policy.UnsafeNoOp())
+        Verifier.staging().verify_dsse(bundle, policy.UnsafeNoOp())
 
         # converting back also works
         roundtripped_attestation = impl.Attestation.from_bundle(bundle)
-        roundtripped_attestation.verify(verifier, policy.UnsafeNoOp(), dist)
+        roundtripped_attestation.verify(policy.UnsafeNoOp(), dist, staging=True)
 
     def test_wrong_predicate_raises_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def dummy_predicate(self_: StatementBuilder, _: str) -> StatementBuilder:
@@ -118,7 +117,6 @@ class TestAttestation:
                 impl.Attestation.sign(signer, dist)
 
     def test_verify_github_attested(self) -> None:
-        verifier = Verifier.production()
         pol = policy.AllOf(
             [
                 policy.OIDCSourceRepositoryURI(
@@ -131,29 +129,59 @@ class TestAttestation:
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
         attestation = impl.Attestation.from_bundle(bundle)
 
-        predicate_type, predicate = attestation.verify(verifier, pol, gh_signed_dist)
+        predicate_type, predicate = attestation.verify(pol, gh_signed_dist)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
+    @pytest.mark.parametrize("claims", (None, {}, {"ref": "refs/tags/v0.0.4a2"}))
+    def test_verify_from_github_publisher(self, claims: Optional[dict]) -> None:
+        publisher = impl.GitHubPublisher(
+            repository="trailofbits/pypi-attestation-models",
+            workflow="release.yml",
+            claims=claims,
+        )
+
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+
+        predicate_type, predicate = attestation.verify(publisher, gh_signed_dist)
+        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
+        assert predicate == {}
+
+    def test_verify_from_github_publisher_wrong(self) -> None:
+        publisher = impl.GitHubPublisher(
+            repository="trailofbits/pypi-attestation-models",
+            workflow="wrong.yml",
+        )
+
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+
+        with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
+            attestation.verify(publisher, gh_signed_dist)
+
     def test_verify(self) -> None:
-        verifier = Verifier.staging()
         # Our checked-in asset has this identity.
         pol = policy.Identity(
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
-        predicate_type, predicate = attestation.verify(verifier, pol, dist)
+        predicate_type, predicate = attestation.verify(pol, dist, staging=True)
 
-        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
-        assert predicate is None
+        assert attestation.statement["_type"] == "https://in-toto.io/Statement/v1"
+        assert (
+            predicate_type
+            == attestation.statement["predicateType"]
+            == "https://docs.pypi.org/attestations/publish/v1"
+        )
+        assert predicate is None and attestation.statement["predicate"] is None
 
         # convert the attestation to a bundle and verify it that way too
         bundle = attestation.to_bundle()
-        verifier.verify_dsse(bundle, policy.UnsafeNoOp())
+        Verifier.staging().verify_dsse(bundle, policy.UnsafeNoOp())
 
     def test_verify_digest_mismatch(self, tmp_path: Path) -> None:
-        verifier = Verifier.staging()
         # Our checked-in asset has this identity.
         pol = policy.Identity(
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
@@ -170,10 +198,9 @@ class TestAttestation:
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution digest"
         ):
-            attestation.verify(verifier, pol, modified_dist)
+            attestation.verify(pol, modified_dist, staging=True)
 
     def test_verify_filename_mismatch(self, tmp_path: Path) -> None:
-        verifier = Verifier.staging()
         # Our checked-in asset has this identity.
         pol = policy.Identity(
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
@@ -190,43 +217,48 @@ class TestAttestation:
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution name"
         ):
-            attestation.verify(verifier, pol, different_name_dist)
+            attestation.verify(pol, different_name_dist, staging=True)
 
     def test_verify_policy_mismatch(self) -> None:
-        verifier = Verifier.staging()
         # Wrong identity.
         pol = policy.Identity(identity="fake@example.com", issuer="https://github.com/login/oauth")
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match=r"Certificate's SANs do not match"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_wrong_envelope(self) -> None:
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(lambda bundle, policy: ("fake-type", None))
+    def test_verify_wrong_envelope(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(lambda bundle, policy: ("fake-type", None))
+            )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="expected JSON envelope, got fake-type"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_bad_payload(self) -> None:
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: ("application/vnd.in-toto+json", b"invalid json")
+    def test_verify_bad_payload(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(
+                    lambda bundle, policy: ("application/vnd.in-toto+json", b"invalid json")
+                )
             )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid statement"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_too_many_subjects(self) -> None:
+    def test_verify_too_many_subjects(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
             StatementBuilder()  # noqa: SLF001
             .subjects(
@@ -240,22 +272,25 @@ class TestAttestation:
             ._inner.model_dump_json()
         )
 
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: (
-                    "application/vnd.in-toto+json",
-                    statement.encode(),
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(
+                    lambda bundle, policy: (
+                        "application/vnd.in-toto+json",
+                        statement.encode(),
+                    )
                 )
             )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="too many subjects in statement"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_subject_missing_name(self) -> None:
+    def test_verify_subject_missing_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
             StatementBuilder()  # noqa: SLF001
             .subjects(
@@ -268,22 +303,25 @@ class TestAttestation:
             ._inner.model_dump_json()
         )
 
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: (
-                    "application/vnd.in-toto+json",
-                    statement.encode(),
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(
+                    lambda bundle, policy: (
+                        "application/vnd.in-toto+json",
+                        statement.encode(),
+                    )
                 )
             )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: missing name"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_subject_invalid_name(self) -> None:
+    def test_verify_subject_invalid_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
             StatementBuilder()  # noqa: SLF001
             .subjects(
@@ -299,22 +337,25 @@ class TestAttestation:
             ._inner.model_dump_json()
         )
 
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: (
-                    "application/vnd.in-toto+json",
-                    statement.encode(),
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(
+                    lambda bundle, policy: (
+                        "application/vnd.in-toto+json",
+                        statement.encode(),
+                    )
                 )
             )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
-    def test_verify_unknown_attestation_type(self) -> None:
+    def test_verify_unknown_attestation_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
             StatementBuilder()  # noqa: SLF001
             .subjects(
@@ -336,20 +377,23 @@ class TestAttestation:
             ._inner.model_dump_json()
         )
 
-        verifier = pretend.stub(
-            verify_dsse=pretend.call_recorder(
-                lambda bundle, policy: (
-                    "application/vnd.in-toto+json",
-                    statement.encode(),
+        staging = pretend.call_recorder(
+            lambda: pretend.stub(
+                verify_dsse=pretend.call_recorder(
+                    lambda bundle, policy: (
+                        "application/vnd.in-toto+json",
+                        statement.encode(),
+                    )
                 )
             )
         )
+        monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
 
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=True)
 
     def test_claims(self) -> None:
         attestation = impl.Attestation.model_validate_json(
@@ -455,10 +499,14 @@ class TestPackaging:
         ("foo-1.0-py3-none.none.none-any.whl", "foo-1.0-py3-none-any.whl"),
         # sdist: fully normalized, no changes
         ("foo-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("foo-1.0.zip", "foo-1.0.zip"),
         # sdist: dist name is not case normalized
         ("Foo-1.0.tar.gz", "foo-1.0.tar.gz"),
         ("FOO-1.0.tar.gz", "foo-1.0.tar.gz"),
         ("FoO-1.0.tar.gz", "foo-1.0.tar.gz"),
+        ("Foo-1.0.zip", "foo-1.0.zip"),
+        ("FOO-1.0.zip", "foo-1.0.zip"),
+        ("FoO-1.0.zip", "foo-1.0.zip"),
         # sdist: dist name contains alternate separators, including
         # `-` despite being forbidden by PEP 625
         ("foo-bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
@@ -467,9 +515,17 @@ class TestPackaging:
         ("foo.bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
         ("foo..bar-1.0.tar.gz", "foo_bar-1.0.tar.gz"),
         ("foo.bar.baz-1.0.tar.gz", "foo_bar_baz-1.0.tar.gz"),
+        ("foo-bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo-bar-baz-1.0.zip", "foo_bar_baz-1.0.zip"),
+        ("foo--bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo.bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo..bar-1.0.zip", "foo_bar-1.0.zip"),
+        ("foo.bar.baz-1.0.zip", "foo_bar_baz-1.0.zip"),
         # sdist: dist version is not normalized
         ("foo-1.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
         ("foo-01.0beta1.tar.gz", "foo-1.0b1.tar.gz"),
+        ("foo-1.0beta1.zip", "foo-1.0b1.zip"),
+        ("foo-01.0beta1.zip", "foo-1.0b1.zip"),
     ],
 )
 def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
@@ -487,6 +543,7 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
         "foo",
         # suffixes must be lowercase
         "foo-1.0.TAR.GZ",
+        "foo-1.0.ZIP",
         "foo-1.0-py3-none-any.WHL",
         # wheel: invalid separator in dist name
         "foo-bar-1.0-py3-none-any.whl",
@@ -497,6 +554,13 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
         # sdist: invalid version
         "foo-charmander.tar.gz",
         "foo-1charmander.tar.gz",
+        "foo-charmander.zip",
+        "foo-1charmander.zip",
+        # sdist: nonsense suffixes
+        "foo-1.2.3.junk.zip",
+        "foo-1.2.3.junk.tar.gz",
+        "foo-1.2.3.zip.tar.gz",
+        "foo-1.2.3.tar.gz.zip",
     ],
 )
 def test_ultranormalize_dist_filename_invalid(input: str) -> None:
@@ -546,6 +610,21 @@ class TestPublisher:
         }
 
 
+class TestGitLabPublisher:
+    def test_as_policy(self) -> None:
+        publisher = impl.GitLabPublisher(repository="fake/fake", claims={"ref": "refs/heads/main"})
+        pol: policy.AllOf = publisher._as_policy()  # type: ignore[assignment]
+
+        assert len(pol._children) == 3
+
+    @pytest.mark.parametrize("claims", [None, {}, {"something": "unrelated"}, {"ref": None}])
+    def test_as_policy_invalid(self, claims: Optional[dict]) -> None:
+        publisher = impl.GitLabPublisher(repository="fake/fake", claims=claims)
+
+        with pytest.raises(impl.VerificationError, match="refusing to build a policy"):
+            publisher._as_policy()
+
+
 class TestProvenance:
     def test_version(self) -> None:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
@@ -572,3 +651,21 @@ class TestProvenance:
                     )
                 ],
             )
+
+
+class DummyModel(BaseModel):
+    base64_bytes: impl.Base64Bytes
+
+
+class TestBase64Bytes:
+    # See the docstrings for `_impl.Base64Bytes` for more details
+    def test_decoding(self) -> None:
+        # This raises when using our custom type. When using Pydantic's Base64Bytes,
+        # this succeeds
+        # The exception message is different in Python 3.9 vs >=3.10
+        with pytest.raises(ValueError, match="Non-base64 digit found|Only base64 data is allowed"):
+            DummyModel(base64_bytes=b"a\n\naaa")
+
+    def test_encoding(self) -> None:
+        model = DummyModel(base64_bytes=b"aaaa" * 76)
+        assert "\\n" not in model.model_dump_json()

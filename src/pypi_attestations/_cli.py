@@ -11,7 +11,7 @@ from cryptography import x509
 from pydantic import ValidationError
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
-from sigstore.verify import Verifier, policy
+from sigstore.verify import policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
 from pypi_attestations._impl import Distribution
@@ -240,7 +240,9 @@ def _inspect(args: argparse.Namespace) -> None:
         certificate = x509.load_der_x509_certificate(verification_material.certificate)
         _logger.info("Certificate:")
         san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-        _logger.info(f"\tSubjects: {[name.value for name in san.value]}")
+        _logger.info(
+            f"\tSubjects (suitable for `--identity`): {[name.value for name in san.value]}"
+        )
         _logger.info(f"\tIssuer: {certificate.issuer.rfc4514_string()}")
         _logger.info(f"\tValidity: {certificate.not_valid_after_utc}")
 
@@ -254,7 +256,6 @@ def _inspect(args: argparse.Namespace) -> None:
 
 def _verify(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
-    verifier: Verifier = Verifier.staging() if args.staging else Verifier.production()
     pol = policy.Identity(identity=args.identity)
 
     # Validate that both the attestations and files exists
@@ -264,23 +265,34 @@ def _verify(args: argparse.Namespace) -> None:
         should_exist=True,
     )
 
+    inputs: list[Path] = []
     for file_path in args.files:
-        attestation_path = Path(f"{file_path}.publish.attestation")
+        # Collect only the inputs themselves, not their attestations.
+        # Attestation paths are inferred subsequently.
+        if file_path.name.endswith(".publish.attestation"):
+            _logger.warning(f"skipping attestation path while collecting file inputs: {file_path}")
+            continue
+        inputs.append(file_path)
+
+    if not inputs:
+        _die("No inputs given; make sure you passed distributions and not attestations as inputs")
+
+    for input in inputs:
+        attestation_path = Path(f"{input}.publish.attestation")
         try:
             attestation = Attestation.model_validate_json(attestation_path.read_text())
         except ValidationError as validation_error:
-            _die(f"Invalid attestation ({file_path}): {validation_error}")
+            _die(f"Invalid attestation ({attestation_path}): {validation_error}")
 
         try:
-            dist = Distribution.from_file(file_path)
+            dist = Distribution.from_file(input)
         except ValidationError as e:
             _die(f"Invalid Python package distribution: {e}")
 
         try:
-            attestation.verify(verifier, pol, dist)
+            attestation.verify(pol, dist, staging=args.staging)
         except VerificationError as verification_error:
-            _logger.error("Verification failed for %s: %s", file_path, verification_error)
-            continue
+            _die(f"Verification failed for {input}: {verification_error}")
 
         _logger.info(f"OK: {attestation_path}")
 
