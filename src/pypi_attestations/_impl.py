@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import json
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, cast, Optional, Union, get_args
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, cast, get_args
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
