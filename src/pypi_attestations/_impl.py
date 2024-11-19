@@ -514,7 +514,7 @@ class _GitLabTrustedPublisherPolicy:
         self._repository = repository
         self._workflow_filepath = workflow_filepath
         # This policy must also satisfy some baseline underlying policies:
-        # the issuer must be GitHub Actions, and the repo must be the one
+        # the issuer must be GitLab, and the repo must be the one
         # we expect.
         self._subpolicy = policy.AllOf(
             [
