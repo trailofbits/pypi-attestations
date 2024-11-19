@@ -4,11 +4,13 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import pretend
 import pytest
 import sigstore
+from cryptography import x509
+from cryptography.hazmat._oid import ExtensionOID
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
@@ -395,7 +397,7 @@ class TestAttestation:
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
             attestation.verify(pol, dist, staging=True)
 
-    def test_claims(self) -> None:
+    def test_certificate_claims(self) -> None:
         attestation = impl.Attestation.model_validate_json(
             pypi_attestations_attestation.read_text()
         )
@@ -427,9 +429,36 @@ class TestAttestation:
             ("1.3.6.1.4.1.57264.1.22", "public"),
         }
 
-        assert not results ^ {
-            (key.dotted_string, value) for key, value in attestation.claims.items()
-        }
+        assert not results ^ set(attestation.certificate_claims.items())
+
+    def test_certificate_claims_othername(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        attestation = impl.Attestation.model_validate_json(
+            pypi_attestations_attestation.read_text()
+        )
+
+        certificate = x509.load_der_x509_certificate(attestation.verification_material.certificate)
+        FULCIO_OTHER_NAME_SAN = x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.7")
+
+        alternative_name = certificate.extensions.get_extension_for_oid(
+            ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+        )
+
+        cast(
+            x509.SubjectAlternativeName, alternative_name.value
+        )._general_names._general_names.append(
+            x509.OtherName(
+                FULCIO_OTHER_NAME_SAN,
+                value=b"name",
+            )
+        )
+
+        monkeypatch.setattr(
+            "cryptography.x509.load_der_x509_certificate", lambda *args: certificate
+        )
+
+        assert (FULCIO_OTHER_NAME_SAN.dotted_string, "name") in set(
+            attestation.certificate_claims.items()
+        )
 
 
 def test_from_bundle_missing_signatures() -> None:
