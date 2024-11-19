@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The `Attestation` type now have a `claims` property to expose underlying Fulcio 
+- The `Attestation` type now has a `claims` property to expose underlying Fulcio 
   signing certificate extensions
   ([#70](https://github.com/trailofbits/pypi-attestations/pull/70))
 
