@@ -4,7 +4,7 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pretend
 import pytest
@@ -136,12 +136,10 @@ class TestAttestation:
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
-    @pytest.mark.parametrize("claims", (None, {}, {"ref": "refs/tags/v0.0.4a2"}))
-    def test_verify_from_github_publisher(self, claims: Optional[dict]) -> None:
+    def test_verify_from_github_publisher(self) -> None:
         publisher = impl.GitHubPublisher(
             repository="trailofbits/pypi-attestation-models",
             workflow="release.yml",
-            claims=claims,
         )
 
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
@@ -585,23 +583,6 @@ class TestPublisher:
 
         with pytest.raises(ValueError, match="Input should be 'GitLab'"):
             impl.GitLabPublisher(kind="GitHub", repository="foo/bar")
-
-    def test_claims(self) -> None:
-        raw = {
-            "kind": "GitHub",
-            "repository": "foo/bar",
-            "workflow": "publish.yml",
-            "claims": {
-                "this": "is-preserved",
-                "this-too": 123,
-            },
-        }
-        pub: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(raw)
-
-        assert pub.claims == {
-            "this": "is-preserved",
-            "this-too": 123,
-        }
 
 
 class TestProvenance:

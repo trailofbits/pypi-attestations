@@ -406,7 +406,6 @@ class _PublisherBase(BaseModel):
     model_config = ConfigDict(alias_generator=to_snake)
 
     kind: str
-    claims: Optional[dict[str, Any]] = None
 
     def _as_policy(self) -> VerificationPolicy:
         """Return an appropriate `sigstore.policy.VerificationPolicy` for this publisher."""
