@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Un
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
-from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
 from pyasn1.codec.der.decoder import decode as der_decode
@@ -197,8 +196,11 @@ class Attestation(BaseModel):
         """Return the claims present in the certificate that match non-deprecated Fulcio OIDs.
 
         The complete list is available on Fulcio documentation, but we only return
-        non deprecated extensions (from 1.3.6.1.4.1.57264.1.7 to .22):
+        the extensions from 1.3.6.1.4.1.57264.1.8 to .22:
         https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
+
+        In particular, `1.3.6.1.4.1.57264.1.7 | OtherName SAN` is not supported because we
+        believe this is not used in-the-wild.
 
         Values are decoded and returned as strings.
         """
@@ -217,15 +219,6 @@ class Attestation(BaseModel):
                 claims[extension.oid.dotted_string] = cast(
                     bytes, der_decode(value, UTF8String)[0]
                 ).decode()
-
-            elif extension.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME:
-                # 1.3.6.1.4.1.57264.1.7 | OtherName SAN
-                # This specifies the username identity in the OtherName Subject Alternative Name,
-                # as defined by RFC5280 4.2.1.6.
-                for name in extension.value.get_values_for_type(x509.OtherName):
-                    extension_oid = x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.7")
-                    if name.type_id == extension_oid:
-                        claims[extension_oid.dotted_string] = name.value.decode()
 
         return claims
 
