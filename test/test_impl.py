@@ -4,7 +4,7 @@ import json
 import os
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import pretend
 import pytest
@@ -37,6 +37,10 @@ pypi_attestations_attestation = _ASSETS / "pypi_attestations-0.0.16.tar.gz.attes
 gh_signed_dist_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz"
 gh_signed_dist = impl.Distribution.from_file(gh_signed_dist_path)
 gh_signed_dist_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.sigstore"
+
+gl_signed_dist_path = _ASSETS / "gitlab_oidc_project-0.0.3.tar.gz"
+gl_signed_dist = impl.Distribution.from_file(gl_signed_dist_path)
+gl_attestation_path = _ASSETS / "gitlab_oidc_project-0.0.3.tar.gz.publish.attestation"
 
 
 class TestDistribution:
@@ -135,12 +139,10 @@ class TestAttestation:
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
-    @pytest.mark.parametrize("claims", (None, {}, {"ref": "refs/tags/v0.0.4a2"}))
-    def test_verify_from_github_publisher(self, claims: Optional[dict]) -> None:
+    def test_verify_from_github_publisher(self) -> None:
         publisher = impl.GitHubPublisher(
             repository="trailofbits/pypi-attestation-models",
             workflow="release.yml",
-            claims=claims,
         )
 
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
@@ -149,6 +151,17 @@ class TestAttestation:
         predicate_type, predicate = attestation.verify(publisher, gh_signed_dist)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
+
+    def test_verify_from_gitlab_publisher(self) -> None:
+        publisher = impl.GitLabPublisher(
+            repository="facutuesca/gitlab-oidc-project",
+            workflow_filepath=".gitlab-ci.yml",
+        )
+
+        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_text())
+        predicate_type, predicate = attestation.verify(publisher, gl_signed_dist)
+        assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
+        assert predicate is None
 
     def test_verify_from_github_publisher_wrong(self) -> None:
         publisher = impl.GitHubPublisher(
@@ -161,6 +174,16 @@ class TestAttestation:
 
         with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
             attestation.verify(publisher, gh_signed_dist)
+
+    def test_verify_from_gitlab_publisher_wrong(self) -> None:
+        publisher = impl.GitLabPublisher(
+            repository="facutuesca/gitlab-oidc-project",
+            workflow_filepath="wrong.yml",
+        )
+
+        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_text())
+        with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
+            attestation.verify(publisher, gl_signed_dist)
 
     def test_verify(self) -> None:
         # Our checked-in asset has this identity.
@@ -607,10 +630,16 @@ class TestPublisher:
         assert gh.workflow == "publish.yml"
         assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gh_raw)) == gh
 
-        gl_raw = {"kind": "GitLab", "repository": "foo/bar/baz", "environment": "publish"}
+        gl_raw = {
+            "kind": "GitLab",
+            "repository": "foo/bar/baz",
+            "workflow_filepath": "dir/release.yml",
+            "environment": "publish",
+        }
         gl: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(gl_raw)
         assert isinstance(gl, impl.GitLabPublisher)
         assert gl.repository == "foo/bar/baz"
+        assert gl.workflow_filepath == "dir/release.yml"
         assert gl.environment == "publish"
         assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gl_raw)) == gl
 
@@ -620,38 +649,6 @@ class TestPublisher:
 
         with pytest.raises(ValueError, match="Input should be 'GitLab'"):
             impl.GitLabPublisher(kind="GitHub", repository="foo/bar")
-
-    def test_claims(self) -> None:
-        raw = {
-            "kind": "GitHub",
-            "repository": "foo/bar",
-            "workflow": "publish.yml",
-            "claims": {
-                "this": "is-preserved",
-                "this-too": 123,
-            },
-        }
-        pub: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(raw)
-
-        assert pub.claims == {
-            "this": "is-preserved",
-            "this-too": 123,
-        }
-
-
-class TestGitLabPublisher:
-    def test_as_policy(self) -> None:
-        publisher = impl.GitLabPublisher(repository="fake/fake", claims={"ref": "refs/heads/main"})
-        pol: policy.AllOf = publisher._as_policy()  # type: ignore[assignment]
-
-        assert len(pol._children) == 3
-
-    @pytest.mark.parametrize("claims", [None, {}, {"something": "unrelated"}, {"ref": None}])
-    def test_as_policy_invalid(self, claims: Optional[dict]) -> None:
-        publisher = impl.GitLabPublisher(repository="fake/fake", claims=claims)
-
-        with pytest.raises(impl.VerificationError, match="refusing to build a policy"):
-            publisher._as_policy()
 
 
 class TestProvenance:

@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   signing certificate extensions
   ([#70](https://github.com/trailofbits/pypi-attestations/pull/70))
 
+## [0.0.17]
+
+### Fixed
+
+- The `GitLabPublisher` policy now takes the workflow file path in order to
+  verify attestations, rathen than assuming it will always be `gitlab-ci.yml`
+  ([#71](https://github.com/trailofbits/pypi-attestations/pull/71)).
+- The `GitLabPublisher` now longer expects claims being passed during construction,
+  rather the `ref` and `sha` claims are extracted from the certificate's extensions,
+  similar to `GitHubPublisher`'s behavior
+  ([#71](https://github.com/trailofbits/pypi-attestations/pull/71)).
+
+
+### Changed
+
+- Publisher classes (`GitLabPublisher` and `GitHubPublisher`) no longer take a claims
+  dictionary during construction
+  ([#72](https://github.com/trailofbits/pypi-attestations/pull/72)).
+
 ## [0.0.16]
 
 ### Added
@@ -180,8 +199,9 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.16...HEAD
-[0.0.16]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.15...v0.0.15
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.17...HEAD
+[0.0.17]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.16...v0.0.17
+[0.0.16]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.12...v0.0.13
