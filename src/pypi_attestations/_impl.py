@@ -194,7 +194,7 @@ class Attestation(BaseModel):
 
     @property
     def certificate_claims(self) -> dict[str, str]:
-        """Returns the claims present in the certificate that match non-deprecated Fulcio OIDs.
+        """Return the claims present in the certificate that match non-deprecated Fulcio OIDs.
 
         The complete list is available on Fulcio documentation, but we only return
         non deprecated extensions (from 1.3.6.1.4.1.57264.1.7 to .22):
