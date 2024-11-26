@@ -9,7 +9,7 @@ from typing import Any
 import pretend
 import pytest
 import sigstore
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import Base64Bytes, BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -649,18 +649,14 @@ class TestProvenance:
 
 
 class DummyModel(BaseModel):
-    base64_bytes: impl.Base64Bytes
+    base64_bytes: Base64Bytes
 
 
 class TestBase64Bytes:
-    # See the docstrings for `_impl.Base64Bytes` for more details
-    def test_decoding(self) -> None:
-        # This raises when using our custom type. When using Pydantic's Base64Bytes,
-        # this succeeds
-        # The exception message is different in Python 3.9 vs >=3.10
-        with pytest.raises(ValueError, match="Non-base64 digit found|Only base64 data is allowed"):
-            DummyModel(base64_bytes=b"a\n\naaa")
-
+    # Regression test for an issue with pydantic < 2.10.0
+    # The Base64Bytes Pydantic type should not insert newlines
+    # when encoding to base64.
+    # See https://github.com/pydantic/pydantic/issues/9072
     def test_encoding(self) -> None:
         model = DummyModel(base64_bytes=b"aaaa" * 76)
         assert "\\n" not in model.model_dump_json()

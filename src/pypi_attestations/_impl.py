@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import serialization
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
 from pyasn1.codec.der.decoder import decode as der_decode
 from pyasn1.type.char import UTF8String
-from pydantic import Base64Encoder, BaseModel, ConfigDict, EncodedBytes, Field, field_validator
+from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_snake
 from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
@@ -36,30 +36,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from cryptography.x509 import Certificate
     from sigstore.sign import Signer
     from sigstore.verify.policy import VerificationPolicy
-
-
-class Base64EncoderSansNewline(Base64Encoder):
-    r"""A Base64Encoder that doesn't insert newlines when encoding.
-
-    Pydantic's Base64Bytes type inserts newlines b'\n' every 76 characters because they
-    use `base64.encodebytes()` instead of `base64.b64encode()`. Pydantic maintainers
-    have stated that they won't fix this, and that users should work around it by
-    defining their own Base64 type with a custom encoder.
-    See https://github.com/pydantic/pydantic/issues/9072 for more details.
-    """
-
-    @classmethod
-    def encode(cls, value: bytes) -> bytes:
-        """Encode bytes to base64."""
-        return base64.b64encode(value)
-
-    @classmethod
-    def decode(cls, value: bytes) -> bytes:
-        """Decode base64 bytes."""
-        return base64.b64decode(value, validate=True)
-
-
-Base64Bytes = Annotated[bytes, EncodedBytes(encoder=Base64EncoderSansNewline)]
 
 
 class Distribution(BaseModel):
