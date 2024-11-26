@@ -38,6 +38,42 @@ if TYPE_CHECKING:  # pragma: no cover
     from sigstore.verify.policy import VerificationPolicy
 
 
+# List the claims OID supported
+# Source: https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
+_FULCIO_CLAIMS_OIDS = [
+    # 1.3.6.1.4.1.57264.1.8 | Issuer (V2)
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.8"),
+    # 1.3.6.1.4.1.57264.1.9 | Build Signer URI
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.9"),
+    # 1.3.6.1.4.1.57264.1.10 | Build Signer Digest
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.10"),
+    # 1.3.6.1.4.1.57264.1.11 | Runner Environment
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.11"),
+    # 1.3.6.1.4.1.57264.1.12 | Source Repository URI
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.12"),
+    # 1.3.6.1.4.1.57264.1.13 | Source Repository Digest
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.13"),
+    # 1.3.6.1.4.1.57264.1.14 | Source Repository Ref
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.14"),
+    # 1.3.6.1.4.1.57264.1.15 | Source Repository Identifier
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.15"),
+    # 1.3.6.1.4.1.57264.1.16 | Source Repository Owner URI
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.16"),
+    # 1.3.6.1.4.1.57264.1.17 | Source Repository Owner Identifier
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.17"),
+    # 1.3.6.1.4.1.57264.1.18 | Build Config URI
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.18"),
+    # 1.3.6.1.4.1.57264.1.19 | Build Config Digest
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.19"),
+    # 1.3.6.1.4.1.57264.1.20 | Build Trigger
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.20"),
+    # 1.3.6.1.4.1.57264.1.21 | Run Invocation URI
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.21"),
+    # 1.3.6.1.4.1.57264.1.22 | Source Repository Visibility At Signing
+    x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.22"),
+]
+
+
 class Distribution(BaseModel):
     """Represents a Python package distribution.
 
@@ -180,15 +216,10 @@ class Attestation(BaseModel):
 
         Values are decoded and returned as strings.
         """
-        fulcio_oid = x509.ObjectIdentifier("1.3.6.1.4.1.57264.1")
         certificate = x509.load_der_x509_certificate(self.verification_material.certificate)
         claims = {}
         for extension in certificate.extensions:
-            identifier = int(extension.oid.dotted_string.rsplit(".", 1)[1])
-            if (
-                extension.oid.dotted_string.startswith(fulcio_oid.dotted_string)
-                and 8 <= identifier <= 22
-            ):
+            if extension.oid in _FULCIO_CLAIMS_OIDS:
                 # 1.3.6.1.4.1.57264.1.8 through 1.3.6.1.4.1.57264.1.22 are formatted as DER-encoded
                 # strings; the ASN.1 tag is UTF8String (0x0C) and the tag class is universal.
                 value = extension.value.value
