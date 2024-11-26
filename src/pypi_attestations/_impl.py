@@ -40,6 +40,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 # List the claims OID supported
 # Source: https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
+# We only support the extensions from 1.3.6.1.4.1.57264.1.8 to .22.
+# In particular, `1.3.6.1.4.1.57264.1.7 | OtherName SAN` is not supported
+# because we believe this is not used in-the-wild.
 _FULCIO_CLAIMS_OIDS = [
     # 1.3.6.1.4.1.57264.1.8 | Issuer (V2)
     x509.ObjectIdentifier("1.3.6.1.4.1.57264.1.8"),
@@ -205,15 +208,9 @@ class Attestation(BaseModel):
 
     @property
     def certificate_claims(self) -> dict[str, str]:
-        """Return the claims present in the certificate that match non-deprecated Fulcio OIDs.
+        """Return the claims present in the certificate.
 
-        The complete list is available on Fulcio documentation, but we only return
-        the extensions from 1.3.6.1.4.1.57264.1.8 to .22:
-        https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
-
-        In particular, `1.3.6.1.4.1.57264.1.7 | OtherName SAN` is not supported because we
-        believe this is not used in-the-wild.
-
+        We only return claims present in `_FULCIO_CLAIMS_OIDS`.
         Values are decoded and returned as strings.
         """
         certificate = x509.load_der_x509_certificate(self.verification_material.certificate)
