@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import json
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, cast, get_args
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, get_args
 
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
@@ -220,9 +220,7 @@ class Attestation(BaseModel):
                 # 1.3.6.1.4.1.57264.1.8 through 1.3.6.1.4.1.57264.1.22 are formatted as DER-encoded
                 # strings; the ASN.1 tag is UTF8String (0x0C) and the tag class is universal.
                 value = extension.value.value
-                claims[extension.oid.dotted_string] = cast(
-                    bytes, der_decode(value, UTF8String)[0]
-                ).decode()
+                claims[extension.oid.dotted_string] = _der_decode_utf8string(value)
 
         return claims
 
