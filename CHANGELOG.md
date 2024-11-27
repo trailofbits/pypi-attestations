@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.18]
+
 ### Added
 
 - The `Attestation` type now has a `certificate_claims` property to expose
@@ -199,7 +201,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.17...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.18...HEAD
+[0.0.18]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.14...v0.0.15
