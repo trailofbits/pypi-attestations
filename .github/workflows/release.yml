@@ -2,6 +2,7 @@ on:
   release:
     types:
       - published
+  pull_request:
 
 name: release
 
@@ -48,28 +49,13 @@ jobs:
           name: distributions
           path: dist/
       - name: Create provenances
+        id: create_provenances
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: 'dist/*'
-
-  publish:
-    name: Publish Python 🐍 distributions 📦 to PyPI
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/pypi-attestations
-    needs: [build]
-    permissions:
-      id-token: write # trusted publishing + attestations
-
-    steps:
-      - name: Download distributions
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+      - name: Convert provenances
+        uses: trailofbits/gh-action-adapt-sigstore-pypi@main
         with:
-          name: distributions
-          path: dist/
+          bundles: ${{ steps.create_provenances.outputs.bundle-path }}
 
-      - name: publish
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          attestations: true
+
