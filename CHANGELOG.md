@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.20]
+
+- Explicitly support sigstore-python 3.6.
+
 ## [0.0.19]
 
 This is a corrective release for [0.0.18].
