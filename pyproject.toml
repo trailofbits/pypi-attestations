@@ -14,7 +14,7 @@ dependencies = [
     "packaging",
     "pyasn1 ~= 0.6",
     "pydantic >= 2.10.0",
-    "sigstore >= 3.5.3, < 3.6",
+    "sigstore >= 3.5.3, < 3.7",
     "sigstore-protobuf-specs",
 ]
 requires-python = ">=3.9"
