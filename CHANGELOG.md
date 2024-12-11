@@ -209,7 +209,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.19...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.20...HEAD
+[0.0.20]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.19...v0.0.20
 [0.0.19]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.18...v0.0.19
 [0.0.18]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.16...v0.0.17
