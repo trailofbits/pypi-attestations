@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.20]
 
+### Changed
+
 - Explicitly support sigstore-python 3.6
   ([#79](https://github.com/trailofbits/pypi-attestations/pull/79))
 
