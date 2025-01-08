@@ -39,6 +39,8 @@ lint = [
 ]
 dev = ["pypi-attestations[doc,test,lint]", "build"]
 
+[project.scripts]
+pypi-attestations = "pypi_attestations._cli:main"
 
 [project.urls]
 Homepage = "https://pypi.org/project/pypi-attestations"
