@@ -51,7 +51,7 @@ name = "pypi_attestations"
 
 [tool.coverage.run]
 # don't attempt code coverage for the CLI entrypoints
-omit = ["src/pypi_attestations/_cli.py", "src/pypi_attestations/__main__.py"]
+omit = ["src/pypi_attestations/__main__.py"]
 
 [tool.mypy]
 mypy_path = "src"
@@ -104,7 +104,6 @@ pyupgrade.keep-runtime-typing = true
 exclude = [
     "env",
     "test",
-    "src/pypi_attestations/_cli.py",
     "src/pypi_attestations/__main__.py",
 ]
 ignore-semiprivate = true
