@@ -84,14 +84,14 @@ print(bundle.to_json())
 ## Usage as a command line tool
 
 > [!IMPORTANT]
-> The `python -m pypi_attestations` CLI is intended primarily for
+> The `pypi-attestations` CLI is intended primarily for
 > experimentation, and is not considered a stable interface for
 > generating or verifying attestations. Users are encouraged to
 > generate attestations using [the official PyPA publishing action]
 > or via this package's [public Python APIs].
 
 ````bash
-python -m pypi_attestations --help
+pypi-attestations --help
 usage: pypi-attestation [-h] [-v] [-V] COMMAND ...
 
 Sign, inspect or verify PEP 740 attestations
@@ -119,7 +119,7 @@ options:
 ```bash
 # Generate a whl file
 make package
-python -m pypi_attestations sign dist/pypi_attestations-*.whl
+pypi-attestations sign dist/pypi_attestations-*.whl
 ```
 
 ### Inspecting a PEP 740 Attestation
@@ -129,7 +129,7 @@ python -m pypi_attestations sign dist/pypi_attestations-*.whl
 > the attestation.
 
 ```bash
-python -m pypi_attestations inspect dist/pypi_attestations-*.whl.publish.attestation
+pypi-attestations inspect dist/pypi_attestations-*.whl.publish.attestation
 ```
 
 ### Verifying a PEP 740 Attestation
@@ -140,13 +140,30 @@ python -m pypi_attestations inspect dist/pypi_attestations-*.whl.publish.attesta
 > workflow that generated the attestation. The format of that identity
 
 ```bash
-python -m pypi_attestations verify --staging \
+pypi-attestations verify attestation --staging \
   --identity william@yossarian.net \
   test/assets/rfc8785-0.1.2-py3-none-any.whl
 ```
 
 The attestation present in the test has been generated using the staging
 environment of Sigstore and signed by the identity `william@yossarian.net`.
+
+### Verifying a PyPI package
+> [!NOTE]
+> The URL must be a direct link to the distribution artifact hosted by PyPI.
+> These can be found in the "Download files" section of the project's page,
+> e.g: https://pypi.org/project/sigstore/#files
+
+```bash
+pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
+  https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl
+```
+
+This command downloads the artifact from the given URL and gets its provenance
+from PyPI. The artifact is then verified against the provenance, while also
+checking that the provenance's signing identity matches the repository specified
+by the user.
+
 
 [PEP 740]: https://peps.python.org/pep-0740/
 
