@@ -385,7 +385,7 @@ def _verify_attestation(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
     pol = policy.Identity(identity=args.identity)
 
-    # Validate that both the attestations and files exists
+    # Validate that both the attestations and files exist
     _validate_files(args.files, should_exist=True)
     _validate_files(
         (Path(f"{file_path}.publish.attestation") for file_path in args.files),
@@ -394,15 +394,7 @@ def _verify_attestation(args: argparse.Namespace) -> None:
 
     inputs: list[Path] = []
     for file_path in args.files:
-        # Collect only the inputs themselves, not their attestations.
-        # Attestation paths are inferred subsequently.
-        if file_path.name.endswith(".publish.attestation"):
-            _logger.warning(f"skipping attestation path while collecting file inputs: {file_path}")
-            continue
         inputs.append(file_path)
-
-    if not inputs:
-        _die("No inputs given; make sure you passed distributions and not attestations as inputs")
 
     for input in inputs:
         attestation_path = Path(f"{input}.publish.attestation")

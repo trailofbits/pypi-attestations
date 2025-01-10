@@ -21,7 +21,7 @@ from pypi_attestations._cli import (
     get_identity_token,
     main,
 )
-from pypi_attestations._impl import Attestation
+from pypi_attestations._impl import Attestation, AttestationError
 
 ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
@@ -101,9 +101,7 @@ def test_sign_command(tmp_path: Path) -> None:
 
 
 @online
-def test_sign_command_failures(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_sign_missing_file(caplog: pytest.LogCaptureFixture) -> None:
     # Missing file
     with pytest.raises(SystemExit):
         run_main_with_command(
@@ -115,9 +113,10 @@ def test_sign_command_failures(
         )
 
     assert "not_exist.txt is not a file" in caplog.text
-    caplog.clear()
 
-    # Signature already exists
+
+@online
+def test_sign_signature_already_exists(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     artifact = tmp_path / artifact_path.with_suffix(".copy2.whl").name
     artifact.touch(exist_ok=False)
 
@@ -135,7 +134,11 @@ def test_sign_command_failures(
     assert "already exists" in caplog.text
     caplog.clear()
 
-    # Invalid token
+
+@online
+def test_sign_invalid_token(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     def return_invalid_token() -> str:
         return "invalid-token"
 
@@ -146,14 +149,39 @@ def test_sign_command_failures(
             [
                 "sign",
                 "--staging",
-                artifact.as_posix(),
+                artifact_path.as_posix(),
             ]
         )
 
     assert "Failed to detect identity" in caplog.text
 
 
-def test_inspect_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+@online
+def test_sign_invalid_artifact(caplog: pytest.LogCaptureFixture, tmp_path: Path) -> None:
+    artifact = tmp_path / "pkg-1.0.0.exe"
+    artifact.touch(exist_ok=False)
+
+    with pytest.raises(SystemExit):
+        run_main_with_command(["sign", "--staging", artifact.as_posix()])
+
+    assert "Invalid Python package distribution" in caplog.text
+
+
+@online
+def test_sign_fail_to_sign(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(pypi_attestations._cli, "Attestation", stub(sign=raiser(AttestationError)))
+    copied_artifact = tmp_path / artifact_path.with_suffix(".copy.whl").name
+    shutil.copy(artifact_path, copied_artifact)
+
+    with pytest.raises(SystemExit):
+        run_main_with_command(["sign", "--staging", copied_artifact.as_posix()])
+
+    assert "Failed to sign:" in caplog.text
+
+
+def test_inspect_command(caplog: pytest.LogCaptureFixture) -> None:
     # Happy path
     run_main_with_command(["inspect", attestation_path.as_posix()])
     assert attestation_path.as_posix() in caplog.text
@@ -183,9 +211,7 @@ def test_inspect_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.M
     assert "not_a_file.txt is not a file." in caplog.text
 
 
-def test_verify_attestation_command(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
     # Happy path
     run_main_with_command(
         [
@@ -219,7 +245,7 @@ def test_verify_attestation_command(
     assert "OK:" not in caplog.text
 
 
-def test_verify_attestation_command_failures(caplog: pytest.LogCaptureFixture) -> None:
+def test_verify_attestation_invalid_attestation(caplog: pytest.LogCaptureFixture) -> None:
     # Failure because not an attestation
     with pytest.raises(SystemExit):
         with tempfile.NamedTemporaryFile(suffix=".publish.attestation") as f:
@@ -238,8 +264,9 @@ def test_verify_attestation_command_failures(caplog: pytest.LogCaptureFixture) -
             )
     assert "Invalid attestation" in caplog.text
 
+
+def test_verify_attestation_missing_artifact(caplog: pytest.LogCaptureFixture) -> None:
     # Failure because missing package file
-    caplog.clear()
     with pytest.raises(SystemExit):
         run_main_with_command(
             [
@@ -254,8 +281,9 @@ def test_verify_attestation_command_failures(caplog: pytest.LogCaptureFixture) -
 
     assert "not_a_file.txt is not a file." in caplog.text
 
+
+def test_verify_attestation_missing_attestation(caplog: pytest.LogCaptureFixture) -> None:
     # Failure because missing attestation file
-    caplog.clear()
     with pytest.raises(SystemExit):
         with tempfile.NamedTemporaryFile() as f:
             run_main_with_command(
@@ -270,6 +298,28 @@ def test_verify_attestation_command_failures(caplog: pytest.LogCaptureFixture) -
             )
 
     assert "is not a file." in caplog.text
+
+
+def test_verify_attestation_invalid_artifact(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    copied_artifact = tmp_path / artifact_path.with_suffix(".whl2").name
+    shutil.copy(artifact_path, copied_artifact)
+    copied_attestation = tmp_path / artifact_path.with_suffix(".whl2.publish.attestation").name
+    shutil.copy(attestation_path, copied_attestation)
+
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "attestation",
+                "--staging",
+                "--identity",
+                "william@yossarian.net",
+                copied_artifact.as_posix(),
+            ]
+        )
+    assert "Invalid Python package distribution" in caplog.text
 
 
 def test_get_identity_token_oauth_flow(monkeypatch: pytest.MonkeyPatch) -> None:
