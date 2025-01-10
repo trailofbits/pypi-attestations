@@ -9,7 +9,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import requests
 import sigstore.oidc
+from pretend import raiser, stub
 from sigstore.oidc import IdentityError
 
 import pypi_attestations._cli
@@ -30,6 +32,11 @@ _ASSETS = _HERE / "assets"
 
 artifact_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
 attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.publish.attestation"
+
+pypi_wheel_url = "https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl"
+pypi_sdist_url = "https://files.pythonhosted.org/packages/db/89/b982115aabe1068fd581d83d2a0b26b78e1e7ce6184e75003d173e15c0b3/sigstore-3.6.1.tar.gz"
+pypi_wheel_filename = pypi_wheel_url.split("/")[-1]
+pypi_sdist_filename = pypi_sdist_url.split("/")[-1]
 
 
 def run_main_with_command(cmd: list[str]) -> None:
@@ -176,11 +183,14 @@ def test_inspect_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.M
     assert "not_a_file.txt is not a file." in caplog.text
 
 
-def test_verify_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_verify_attestation_command(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Happy path
     run_main_with_command(
         [
             "verify",
+            "attestation",
             "--staging",
             "--identity",
             "william@yossarian.net",
@@ -196,6 +206,7 @@ def test_verify_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.Mo
         run_main_with_command(
             [
                 "verify",
+                "attestation",
                 "--identity",
                 "william@yossarian.net",
                 artifact_path.as_posix(),
@@ -208,7 +219,7 @@ def test_verify_command(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.Mo
     assert "OK:" not in caplog.text
 
 
-def test_verify_command_failures(caplog: pytest.LogCaptureFixture) -> None:
+def test_verify_attestation_command_failures(caplog: pytest.LogCaptureFixture) -> None:
     # Failure because not an attestation
     with pytest.raises(SystemExit):
         with tempfile.NamedTemporaryFile(suffix=".publish.attestation") as f:
@@ -218,6 +229,7 @@ def test_verify_command_failures(caplog: pytest.LogCaptureFixture) -> None:
             run_main_with_command(
                 [
                     "verify",
+                    "attestation",
                     "--staging",
                     "--identity",
                     "william@yossarian.net",
@@ -232,6 +244,7 @@ def test_verify_command_failures(caplog: pytest.LogCaptureFixture) -> None:
         run_main_with_command(
             [
                 "verify",
+                "attestation",
                 "--staging",
                 "--identity",
                 "william@yossarian.net",
@@ -248,6 +261,7 @@ def test_verify_command_failures(caplog: pytest.LogCaptureFixture) -> None:
             run_main_with_command(
                 [
                     "verify",
+                    "attestation",
                     "--staging",
                     "--identity",
                     "william@yossarian.net",
@@ -256,6 +270,21 @@ def test_verify_command_failures(caplog: pytest.LogCaptureFixture) -> None:
             )
 
     assert "is not a file." in caplog.text
+
+
+def test_get_identity_token_oauth_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+    # If no ambient credential is available, default to the OAuth2 flow
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: None)
+    identity_token = stub()
+
+    class MockIssuer:
+        @staticmethod
+        def staging() -> stub:
+            return stub(identity_token=lambda: identity_token)
+
+    monkeypatch.setattr(pypi_attestations._cli, "Issuer", MockIssuer)
+
+    assert pypi_attestations._cli.get_identity_token(stub(staging=True)) == identity_token
 
 
 def test_validate_files(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -285,3 +314,290 @@ def test_validate_files(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> Non
         _validate_files([file_1_missing, file_2_exist], should_exist=False)
 
     assert f"{file_2_exist} already exists." in caplog.text
+
+
+@online
+def test_verify_pypi_command(caplog: pytest.LogCaptureFixture) -> None:
+    # Happy path wheel
+    run_main_with_command(
+        [
+            "verify",
+            "pypi",
+            "--repository",
+            "https://github.com/sigstore/sigstore-python",
+            pypi_wheel_url,
+        ]
+    )
+    assert f"OK: {pypi_wheel_filename}" in caplog.text
+
+    caplog.clear()
+
+    # Happy path sdist
+    run_main_with_command(
+        [
+            "verify",
+            "pypi",
+            "--repository",
+            "https://github.com/sigstore/sigstore-python",
+            pypi_sdist_url,
+        ]
+    )
+    assert f"OK: {pypi_sdist_filename}" in caplog.text
+
+    caplog.clear()
+
+    with pytest.raises(SystemExit):
+        # Failure from the Sigstore environment
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--staging",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url,
+            ]
+        )
+    assert (
+        "Verification failed: failed to build chain: unable to get local issuer certificate"
+        in caplog.text
+    )
+    assert "OK:" not in caplog.text
+
+
+@online
+def test_verify_pypi_command_failure_download(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Failure because URL does not exist
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url + "invalid",
+            ]
+        )
+    assert "Error downloading file: 404 Client Error" in caplog.text
+
+    caplog.clear()
+
+    # Download fails
+    response = stub(
+        raise_for_status=lambda: None, iter_content=raiser(requests.RequestException("myerror"))
+    )
+    monkeypatch.setattr(requests, "get", lambda url, stream: response)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url,
+            ]
+        )
+    assert "Error downloading file: myerror" in caplog.text
+
+
+def test_verify_pypi_invalid_url(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Failure because file is not hosted on PyPI
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "https://example.com/mypkg-1.2.0.tar.gz",
+            ]
+        )
+    assert "Unsupported/invalid URL" in caplog.text
+
+
+def test_verify_pypi_invalid_file_name(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Failure because file is neither a wheer nor a sdist
+    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url + ".invalid_ext",
+            ]
+        )
+    assert (
+        "URL should point to a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)"
+        in caplog.text
+    )
+
+    caplog.clear()
+
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url + "/invalid-wheel-name-9.9.9-.whl",
+            ]
+        )
+    assert "Invalid wheel filename" in caplog.text
+
+
+@online
+def test_verify_pypi_validation_fails(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Replace the actual wheel with another file
+    def _download_file(url: str, dest: Path) -> None:
+        with open(dest, "w") as f:
+            f.write("random wheel file")
+
+    monkeypatch.setattr(pypi_attestations._cli, "_download_file", _download_file)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url,
+            ]
+        )
+    assert f"Verification failed for {pypi_wheel_filename}" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "status_code,expected_error",
+    [
+        (403, "Access to provenance is temporarily disabled by PyPI administrators"),
+        (404, f'Provenance for file "{pypi_wheel_filename}" was not found'),
+        (
+            500,
+            "Unexpected error while downloading provenance file from PyPI, Integrity API "
+            "returned status code: 500",
+        ),
+    ],
+)
+def test_verify_pypi_error_getting_provenance(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    expected_error: str,
+) -> None:
+    # Failure to get provenance from PyPI
+    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    response = requests.Response()
+    response.status_code = status_code
+    monkeypatch.setattr(requests, "get", lambda url: response)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url,
+            ]
+        )
+    assert expected_error in caplog.text
+
+
+def test_verify_pypi_error_validating_provenance(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Failure to validate provenance JSON
+    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    response = stub(status_code=200, raise_for_status=lambda: None, text="not json")
+    response.status_code = 200
+    monkeypatch.setattr(requests, "get", lambda url: response)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                pypi_wheel_url,
+            ]
+        )
+    assert "Invalid provenance: 1 validation error for Provenance" in caplog.text
+
+    caplog.clear()
+
+
+@online
+@pytest.mark.parametrize(
+    "repository,expected_error",
+    [
+        (
+            "https://gitlab.com/sigstore/sigstore-python",
+            "Verification failed: provenance was signed by a github.com repository, but expected "
+            "a gitlab.com repository",
+        ),
+        (
+            "https://github.com/other/repo",
+            'Verification failed: provenance was signed by repository "sigstore/sigstore-python", '
+            'expected "other/repo"',
+        ),
+    ],
+)
+def test_verify_pypi_command_publisher_doesnt_match_user_repository(
+    caplog: pytest.LogCaptureFixture,
+    repository: str,
+    expected_error: str,
+) -> None:
+    # Failure because URL does not exist
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                repository,
+                pypi_wheel_url,
+            ]
+        )
+
+    assert expected_error in caplog.text
+
+
+@online
+@pytest.mark.parametrize(
+    "repository,expected_error",
+    [
+        # Only github.com or gitlab.com allowed
+        ("https://example.com/sigstore/sigstore-python", "Unsupported/invalid URL"),
+        # Only HTTPS allowed
+        ("http://github.com/other/repo", "Unsupported/invalid URL"),
+    ],
+)
+def test_verify_pypi_command_invalid_repository_argument(
+    caplog: pytest.LogCaptureFixture,
+    repository: str,
+    expected_error: str,
+) -> None:
+    # Failure because URL does not exist
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                repository,
+                pypi_wheel_url,
+            ]
+        )
+
+    assert expected_error in caplog.text

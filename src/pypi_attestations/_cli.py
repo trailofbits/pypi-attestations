@@ -1,3 +1,5 @@
+"""Implementation of the CLI for pypi-attestations."""
+
 from __future__ import annotations
 
 import argparse
@@ -5,18 +7,32 @@ import json
 import logging
 import typing
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
+import requests
 import sigstore.oidc
 from cryptography import x509
+from packaging.utils import (
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 from pydantic import ValidationError
+from rfc3986 import exceptions, uri_reference, validators
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
-from pypi_attestations._impl import Distribution
+from pypi_attestations._impl import (
+    Distribution,
+    GitHubPublisher,
+    Provenance,
+    Publisher,
+)
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable
     from typing import NoReturn
 
@@ -82,26 +98,59 @@ def _parser() -> argparse.ArgumentParser:
         parents=[parent_parser],
     )
 
-    verify_command.add_argument(
+    verify_subcommands = verify_command.add_subparsers(
+        required=True,
+        dest="verification_type",
+        metavar="VERIFICATION_TYPE",
+        help="The type of verification",
+    )
+    verify_attestation_command = verify_subcommands.add_parser(
+        name="attestation", help="Verify a PEP-740 attestation"
+    )
+
+    verify_attestation_command.add_argument(
         "--identity",
         type=str,
         required=True,
         help="Signer identity",
     )
 
-    verify_command.add_argument(
+    verify_attestation_command.add_argument(
         "--staging",
         action="store_true",
         default=False,
         help="Use the staging environment",
     )
 
-    verify_command.add_argument(
+    verify_attestation_command.add_argument(
         "files",
         metavar="FILE",
         type=Path,
         nargs="+",
         help="The file to sign",
+    )
+
+    verify_pypi_command = verify_subcommands.add_parser(name="pypi", help="Verify a PyPI release")
+
+    verify_pypi_command.add_argument(
+        "distribution_url",
+        metavar="URL_PYPI_FILE",
+        type=str,
+        help='URL of the PyPI file to verify, i.e: "https://files.pythonhosted.org/..."',
+    )
+
+    verify_pypi_command.add_argument(
+        "--repository",
+        type=str,
+        required=True,
+        help="URL of the publishing GitHub or GitLab repository",
+    )
+
+    verify_pypi_command.add_argument(
+        "--staging",
+        action="store_true",
+        default=False,
+        help="Use the staging environment",
     )
 
     inspect_command = subcommands.add_parser(
@@ -162,6 +211,84 @@ def get_identity_token(args: argparse.Namespace) -> IdentityToken:
     # Fallback to interactive OAuth-2 Flow
     issuer: Issuer = Issuer.staging() if args.staging else Issuer.production()
     return issuer.identity_token()
+
+
+def _download_file(url: str, dest: Path) -> None:
+    """Download a file into a given path."""
+    response = requests.get(url, stream=True)
+    try:
+        response.raise_for_status()  # Raise an exception for bad status codes
+    except requests.exceptions.HTTPError as e:
+        _die(f"Error downloading file: {e}")
+
+    with open(dest, "wb") as f:
+        try:
+            for chunk in response.iter_content(chunk_size=1024):
+                f.write(chunk)
+        except requests.RequestException as e:
+            _die(f"Error downloading file: {e}")
+
+
+def _get_provenance_from_pypi(filename: str) -> Provenance:
+    """Use PyPI's integrity API to get a distribution's provenance."""
+    try:
+        if filename.endswith(".tar.gz") or filename.endswith(".zip"):
+            name, version = parse_sdist_filename(filename)
+        elif filename.endswith(".whl"):
+            name, version, _, _ = parse_wheel_filename(filename)
+        else:
+            _die("URL should point to a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)")
+    except (InvalidSdistFilename, InvalidWheelFilename) as e:
+        _die(f"Invalid distribution filename: {e}")
+
+    provenance_url = f"https://pypi.org/integrity/{name}/{version}/{filename}/provenance"
+    response = requests.get(provenance_url)
+    if response.status_code == 403:
+        _die("Access to provenance is temporarily disabled by PyPI administrators")
+    elif response.status_code == 404:
+        _die(f'Provenance for file "{filename}" was not found')
+    elif response.status_code != 200:
+        _die(
+            f"Unexpected error while downloading provenance file from PyPI, Integrity API "
+            f"returned status code: {response.status_code}"
+        )
+
+    try:
+        return Provenance.model_validate_json(response.text)
+    except ValidationError as validation_error:
+        _die(f"Invalid provenance: {validation_error}")
+
+
+def _check_repository_identity(expected_repository_url: str, publisher: Publisher) -> None:
+    """Check that a repository url matches the given publisher's identity."""
+    validator = (
+        validators.Validator()
+        .allow_schemes("https")
+        .allow_hosts("github.com", "gitlab.com")
+        .require_presence_of("scheme", "host")
+    )
+    try:
+        expected_uri = uri_reference(expected_repository_url)
+        validator.validate(expected_uri)
+    except exceptions.RFC3986Exception as e:
+        _die(f"Unsupported/invalid URL: {e}")
+
+    actual_host = "github.com" if isinstance(publisher, GitHubPublisher) else "gitlab.com"
+    expected_host = expected_uri.host
+    if actual_host != expected_host:
+        _die(
+            f"Verification failed: provenance was signed by a {actual_host} repository, but "
+            f"expected a {expected_host} repository"
+        )
+
+    actual_repository = publisher.repository
+    # '/owner/repo' -> 'owner/repo'
+    expected_repository = expected_uri.path.lstrip("/")
+    if actual_repository != expected_repository:
+        _die(
+            f'Verification failed: provenance was signed by repository "{actual_repository}", '
+            f'expected "{expected_repository}"'
+        )
 
 
 def _sign(args: argparse.Namespace) -> None:
@@ -254,7 +381,7 @@ def _inspect(args: argparse.Namespace) -> None:
             _logger.info(f"\tLog Index: {entry['logIndex']}")
 
 
-def _verify(args: argparse.Namespace) -> None:
+def _verify_attestation(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
     pol = policy.Identity(identity=args.identity)
 
@@ -297,7 +424,48 @@ def _verify(args: argparse.Namespace) -> None:
         _logger.info(f"OK: {attestation_path}")
 
 
+def _verify_pypi(args: argparse.Namespace) -> None:
+    """Verify a distribution hosted on PyPI.
+
+    The distribution is downloaded and verified. The verification is against
+    the provenance file hosted on PyPI (if any), and against the repository URL
+    passed by the user as a CLI argument.
+    """
+    validator = (
+        validators.Validator()
+        .allow_schemes("https")
+        .allow_hosts("files.pythonhosted.org")
+        .require_presence_of("scheme", "host")
+    )
+    try:
+        pypi_url = uri_reference(args.distribution_url)
+        validator.validate(pypi_url)
+    except exceptions.RFC3986Exception as e:
+        _die(f"Unsupported/invalid URL: {e}")
+
+    with TemporaryDirectory() as temp_dir:
+        dist_filename = pypi_url.path.split("/")[-1]
+        dist_path = Path(temp_dir) / dist_filename
+        _download_file(url=pypi_url.unsplit(), dest=dist_path)
+        provenance = _get_provenance_from_pypi(dist_filename)
+        dist = Distribution.from_file(dist_path)
+        try:
+            for attestation_bundle in provenance.attestation_bundles:
+                publisher = attestation_bundle.publisher
+                _check_repository_identity(
+                    expected_repository_url=args.repository, publisher=publisher
+                )
+                policy = publisher._as_policy()  # noqa: SLF001.
+                for attestation in attestation_bundle.attestations:
+                    attestation.verify(policy, dist, staging=args.staging)
+        except VerificationError as verification_error:
+            _die(f"Verification failed for {dist_filename}: {verification_error}")
+
+    _logger.info(f"OK: {dist_filename}")
+
+
 def main() -> None:
+    """Dispatch the CLI subcommand."""
     parser = _parser()
     args: argparse.Namespace = parser.parse_args()
 
@@ -313,6 +481,9 @@ def main() -> None:
     if args.subcommand == "sign":
         _sign(args)
     elif args.subcommand == "verify":
-        _verify(args)
+        if args.verification_type == "attestation":
+            _verify_attestation(args)
+        elif args.verification_type == "pypi":
+            _verify_pypi(args)
     elif args.subcommand == "inspect":
         _inspect(args)
