@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.21]
+
+### Changed
+
+- The CLI entrypoint is now `pypi-attestations` 
+  ([#82](https://github.com/trailofbits/pypi-attestations/pull/82))
+- The CLI `verify` subcommand has been changed to `verify attestation`,
+  as in `pypi-attestations verify attestation --identity ...`
+  ([#82](https://github.com/trailofbits/pypi-attestations/pull/82))
+
+### Added
+- The CLI has a new subcommand `verify pypi`, which takes a URL to a
+  PyPI distribution (either a wheel or a source distribution) and a
+  GitHub/GitLab repository. The command verifies the distribution by
+  downloading it and its provenance from PyPI, verifying them using
+  `sigstore` and checking that the repository matches the one in the
+  PyPI provenance file.
+  ([#82](https://github.com/trailofbits/pypi-attestations/pull/82))
+
 ## [0.0.20]
 
 ### Changed
@@ -212,7 +231,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.20...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.21...HEAD
+[0.0.21]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.20...v0.0.21
 [0.0.20]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.19...v0.0.20
 [0.0.19]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.18...v0.0.19
 [0.0.18]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.17...v0.0.18
