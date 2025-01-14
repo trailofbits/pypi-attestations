@@ -30,8 +30,10 @@ online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
 _HERE = Path(__file__).parent
 _ASSETS = _HERE / "assets"
 
-artifact_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl"
-attestation_path = _ASSETS / "rfc8785-0.1.2-py3-none-any.whl.publish.attestation"
+artifact_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz"
+publish_attestation_identity = "https://github.com/trailofbits/pypi-attestations/.github/workflows/release.yml@refs/tags/v0.0.19"
+publish_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.publish.attestation"
+slsa_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.slsa.attestation"
 
 pypi_wheel_url = "https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl"
 pypi_sdist_url = "https://files.pythonhosted.org/packages/db/89/b982115aabe1068fd581d83d2a0b26b78e1e7ce6184e75003d173e15c0b3/sigstore-3.6.1.tar.gz"
@@ -83,7 +85,7 @@ def test_get_identity_token(monkeypatch: pytest.MonkeyPatch) -> None:
 @online
 def test_sign_command(tmp_path: Path) -> None:
     # Happy path
-    copied_artifact = tmp_path / artifact_path.with_suffix(".copy.whl").name
+    copied_artifact = tmp_path / artifact_path.name
     shutil.copy(artifact_path, copied_artifact)
 
     run_main_with_command(
@@ -172,7 +174,7 @@ def test_sign_fail_to_sign(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(pypi_attestations._cli, "Attestation", stub(sign=raiser(AttestationError)))
-    copied_artifact = tmp_path / artifact_path.with_suffix(".copy.whl").name
+    copied_artifact = tmp_path / artifact_path.name
     shutil.copy(artifact_path, copied_artifact)
 
     with pytest.raises(SystemExit):
@@ -183,11 +185,11 @@ def test_sign_fail_to_sign(
 
 def test_inspect_command(caplog: pytest.LogCaptureFixture) -> None:
     # Happy path
-    run_main_with_command(["inspect", attestation_path.as_posix()])
-    assert attestation_path.as_posix() in caplog.text
+    run_main_with_command(["inspect", publish_attestation_path.as_posix()])
+    assert publish_attestation_path.as_posix() in caplog.text
     assert "CN=sigstore-intermediate,O=sigstore.dev" in caplog.text
 
-    run_main_with_command(["inspect", "--dump-bytes", attestation_path.as_posix()])
+    run_main_with_command(["inspect", "--dump-bytes", publish_attestation_path.as_posix()])
     assert "Signature:" in caplog.text
 
     # Failure paths
@@ -217,13 +219,13 @@ def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
         [
             "verify",
             "attestation",
-            "--staging",
             "--identity",
-            "william@yossarian.net",
+            publish_attestation_identity,
             artifact_path.as_posix(),
         ]
     )
-    assert f"OK: {attestation_path.as_posix()}" in caplog.text
+    assert f"OK: {publish_attestation_path.as_posix()}" in caplog.text
+    assert f"OK: {slsa_attestation_path.as_posix()}" in caplog.text
 
     caplog.clear()
 
@@ -233,8 +235,9 @@ def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
             [
                 "verify",
                 "attestation",
+                "--staging",
                 "--identity",
-                "william@yossarian.net",
+                publish_attestation_identity,
                 artifact_path.as_posix(),
             ]
         )
@@ -256,9 +259,8 @@ def test_verify_attestation_invalid_attestation(caplog: pytest.LogCaptureFixture
                 [
                     "verify",
                     "attestation",
-                    "--staging",
                     "--identity",
-                    "william@yossarian.net",
+                    publish_attestation_identity,
                     fake_package_name.as_posix(),
                 ]
             )
@@ -272,9 +274,8 @@ def test_verify_attestation_missing_artifact(caplog: pytest.LogCaptureFixture) -
             [
                 "verify",
                 "attestation",
-                "--staging",
                 "--identity",
-                "william@yossarian.net",
+                publish_attestation_identity,
                 "not_a_file.txt",
             ]
         )
@@ -290,14 +291,13 @@ def test_verify_attestation_missing_attestation(caplog: pytest.LogCaptureFixture
                 [
                     "verify",
                     "attestation",
-                    "--staging",
                     "--identity",
-                    "william@yossarian.net",
+                    publish_attestation_identity,
                     f.name,
                 ]
             )
 
-    assert "is not a file." in caplog.text
+    assert f"Couldn't find attestations for file {f.name}" in caplog.text
 
 
 def test_verify_attestation_invalid_artifact(
@@ -306,16 +306,15 @@ def test_verify_attestation_invalid_artifact(
     copied_artifact = tmp_path / artifact_path.with_suffix(".whl2").name
     shutil.copy(artifact_path, copied_artifact)
     copied_attestation = tmp_path / artifact_path.with_suffix(".whl2.publish.attestation").name
-    shutil.copy(attestation_path, copied_attestation)
+    shutil.copy(publish_attestation_path, copied_attestation)
 
     with pytest.raises(SystemExit):
         run_main_with_command(
             [
                 "verify",
                 "attestation",
-                "--staging",
                 "--identity",
-                "william@yossarian.net",
+                publish_attestation_identity,
                 copied_artifact.as_posix(),
             ]
         )
