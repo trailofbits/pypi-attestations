@@ -33,6 +33,7 @@ _ASSETS = _HERE / "assets"
 artifact_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz"
 publish_attestation_identity = "https://github.com/trailofbits/pypi-attestations/.github/workflows/release.yml@refs/tags/v0.0.19"
 publish_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.publish.attestation"
+slsa_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.slsa.attestation"
 
 pypi_wheel_url = "https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl"
 pypi_sdist_url = "https://files.pythonhosted.org/packages/db/89/b982115aabe1068fd581d83d2a0b26b78e1e7ce6184e75003d173e15c0b3/sigstore-3.6.1.tar.gz"
@@ -224,6 +225,7 @@ def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
         ]
     )
     assert f"OK: {publish_attestation_path.as_posix()}" in caplog.text
+    assert f"OK: {slsa_attestation_path.as_posix()}" in caplog.text
 
     caplog.clear()
 
@@ -295,7 +297,7 @@ def test_verify_attestation_missing_attestation(caplog: pytest.LogCaptureFixture
                 ]
             )
 
-    assert "is not a file." in caplog.text
+    assert f"Couldn't find attestations for file {f.name}" in caplog.text
 
 
 def test_verify_attestation_invalid_artifact(

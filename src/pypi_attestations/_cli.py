@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import typing
+from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -385,35 +386,36 @@ def _verify_attestation(args: argparse.Namespace) -> None:
     """Verify the files passed as argument."""
     pol = policy.Identity(identity=args.identity)
 
-    # Validate that both the attestations and files exist
+    # Validate that the files exist
     _validate_files(args.files, should_exist=True)
-    _validate_files(
-        (Path(f"{file_path}.publish.attestation") for file_path in args.files),
-        should_exist=True,
-    )
 
-    inputs: list[Path] = []
-    for file_path in args.files:
-        inputs.append(file_path)
+    # artifact -> [attestation1, attestation2, ...]
+    files_with_attestations: dict[Path, list[Path]] = defaultdict(list)
+    for f in args.files:
+        for attestation_file in (Path(f"{f}.publish.attestation"), Path(f"{f}.slsa.attestation")):
+            if attestation_file.exists():
+                files_with_attestations[f].append(attestation_file)
+        if not files_with_attestations[f]:
+            _die(f"Couldn't find attestations for file {f}")
 
-    for input in inputs:
-        attestation_path = Path(f"{input}.publish.attestation")
-        try:
-            attestation = Attestation.model_validate_json(attestation_path.read_text())
-        except ValidationError as validation_error:
-            _die(f"Invalid attestation ({attestation_path}): {validation_error}")
+    for file_path, attestations in files_with_attestations.items():
+        for attestation_path in attestations:
+            try:
+                attestation = Attestation.model_validate_json(attestation_path.read_text())
+            except ValidationError as validation_error:
+                _die(f"Invalid attestation ({attestation_path}): {validation_error}")
 
-        try:
-            dist = Distribution.from_file(input)
-        except ValidationError as e:
-            _die(f"Invalid Python package distribution: {e}")
+            try:
+                dist = Distribution.from_file(file_path)
+            except ValidationError as e:
+                _die(f"Invalid Python package distribution: {e}")
 
-        try:
-            attestation.verify(pol, dist, staging=args.staging)
-        except VerificationError as verification_error:
-            _die(f"Verification failed for {input}: {verification_error}")
+            try:
+                attestation.verify(pol, dist, staging=args.staging)
+            except VerificationError as verification_error:
+                _die(f"Verification failed for {file_path}: {verification_error}")
 
-        _logger.info(f"OK: {attestation_path}")
+            _logger.info(f"OK: {attestation_path}")
 
 
 def _verify_pypi(args: argparse.Namespace) -> None:

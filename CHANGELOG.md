@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The CLI subcommand `verify attestation` now supports `.slsa.attestation`
+  files. When verifying an artifact, both `.publish.attestation` and
+  `.slsa.attestation` files are used (if present).
+
 ## [0.0.21]
 
 ### Changed
@@ -18,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#82](https://github.com/trailofbits/pypi-attestations/pull/82))
 
 ### Added
+
 - The CLI has a new subcommand `verify pypi`, which takes a URL to a
   PyPI distribution (either a wheel or a source distribution) and a
   GitHub/GitLab repository. The command verifies the distribution by

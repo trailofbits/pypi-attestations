@@ -134,19 +134,11 @@ pypi-attestations inspect dist/pypi_attestations-*.whl.publish.attestation
 
 ### Verifying a PEP 740 Attestation
 
-> [!NOTE]
-> The example below uses an email with `--identity`, but actual PyPI
-> attestations will be signed with a machine identity corresponding to the
-> workflow that generated the attestation. The format of that identity
-
 ```bash
-pypi-attestations verify attestation --staging \
-  --identity william@yossarian.net \
-  test/assets/rfc8785-0.1.2-py3-none-any.whl
+pypi-attestations verify attestation  \
+  --identity https://github.com/trailofbits/pypi-attestations/.github/workflows/release.yml@refs/tags/v0.0.19 \
+  test/assets/pypi_attestations-0.0.19.tar.gz
 ```
-
-The attestation present in the test has been generated using the staging
-environment of Sigstore and signed by the identity `william@yossarian.net`.
 
 ### Verifying a PyPI package
 > [!NOTE]
