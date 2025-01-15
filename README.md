@@ -142,19 +142,21 @@ pypi-attestations verify attestation  \
 
 ### Verifying a PyPI package
 > [!NOTE]
-> The URL must be a direct link to the distribution artifact hosted by PyPI.
-> These can be found in the "Download files" section of the project's page,
-> e.g: https://pypi.org/project/sigstore/#files
-
+> The package to verify can be passed either as $PKG_NAME/$FILE_NAME (e.g:
+> 'sampleproject/sampleproject-1.0.0-py3-none-any.whl'), or as a direct URL
+> to the artifact hosted by PyPI.
 ```bash
+pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
+  sigstore/sigstore-3.6.1-py3-none-any.whl
+
+# or alternatively:
 pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
   https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl
 ```
 
-This command downloads the artifact from the given URL and gets its provenance
-from PyPI. The artifact is then verified against the provenance, while also
-checking that the provenance's signing identity matches the repository specified
-by the user.
+This command downloads the artifact and its provenance from PyPI. The artifact 
+is then verified against the provenance, while also checking that the provenance's 
+signing identity matches the repository specified by the user.
 
 
 [PEP 740]: https://peps.python.org/pep-0740/
