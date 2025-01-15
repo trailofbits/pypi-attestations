@@ -39,6 +39,8 @@ pypi_wheel_url = "https://files.pythonhosted.org/packages/70/f5/324edb6a802438e9
 pypi_sdist_url = "https://files.pythonhosted.org/packages/db/89/b982115aabe1068fd581d83d2a0b26b78e1e7ce6184e75003d173e15c0b3/sigstore-3.6.1.tar.gz"
 pypi_wheel_filename = pypi_wheel_url.split("/")[-1]
 pypi_sdist_filename = pypi_sdist_url.split("/")[-1]
+pypi_wheel_abbrev = f"sigstore/{pypi_wheel_filename}"
+pypi_sdist_abbrev = f"sigstore/{pypi_sdist_filename}"
 
 
 def run_main_with_command(cmd: list[str]) -> None:
@@ -366,35 +368,33 @@ def test_validate_files(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> Non
 
 
 @online
-def test_verify_pypi_command(caplog: pytest.LogCaptureFixture) -> None:
-    # Happy path wheel
+@pytest.mark.parametrize(
+    "url_argument, filename",
+    [
+        (pypi_wheel_url, pypi_wheel_filename),
+        (pypi_sdist_url, pypi_sdist_filename),
+        (pypi_wheel_abbrev, pypi_wheel_filename),
+        (pypi_sdist_abbrev, pypi_sdist_filename),
+    ],
+)
+def test_verify_pypi_command(
+    caplog: pytest.LogCaptureFixture, url_argument: str, filename: str
+) -> None:
+    # Happy path
     run_main_with_command(
         [
             "verify",
             "pypi",
             "--repository",
             "https://github.com/sigstore/sigstore-python",
-            pypi_wheel_url,
+            url_argument,
         ]
     )
-    assert f"OK: {pypi_wheel_filename}" in caplog.text
+    assert f"OK: {filename}" in caplog.text
 
-    caplog.clear()
 
-    # Happy path sdist
-    run_main_with_command(
-        [
-            "verify",
-            "pypi",
-            "--repository",
-            "https://github.com/sigstore/sigstore-python",
-            pypi_sdist_url,
-        ]
-    )
-    assert f"OK: {pypi_sdist_filename}" in caplog.text
-
-    caplog.clear()
-
+@online
+def test_verify_pypi_command_env_fail(caplog: pytest.LogCaptureFixture) -> None:
     with pytest.raises(SystemExit):
         # Failure from the Sigstore environment
         run_main_with_command(
@@ -560,6 +560,44 @@ def test_verify_pypi_error_getting_provenance(
             ]
         )
     assert expected_error in caplog.text
+
+
+def test_verify_pypi_error_finding_package_info(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = stub(raise_for_status=raiser(requests.HTTPError("myerror")))
+    monkeypatch.setattr(requests, "get", lambda url, headers: response)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "somepkg/somefile",
+            ]
+        )
+    assert "Error trying to get information for 'somepkg' from PyPI: myerror" in caplog.text
+
+
+def test_verify_pypi_error_finding_artifact_url(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = stub(raise_for_status=lambda: None, json=lambda: {"files": []})
+    monkeypatch.setattr(requests, "get", lambda url, headers: response)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "somepkg/somefile",
+            ]
+        )
+    assert "Could not find the artifact 'somefile' for 'somepkg'" in caplog.text
 
 
 def test_verify_pypi_error_validating_provenance(
