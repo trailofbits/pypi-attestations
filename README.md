@@ -142,12 +142,12 @@ pypi-attestations verify attestation  \
 
 ### Verifying a PyPI package
 > [!NOTE]
-> The package to verify can be passed either as $PKG_NAME/$FILE_NAME (e.g:
-> 'sampleproject/sampleproject-1.0.0-py3-none-any.whl'), or as a direct URL
+> The package to verify can be passed either as a `pypi:` prefixed filename (e.g:
+> 'pypi:sampleproject-1.0.0-py3-none-any.whl'), or as a direct URL
 > to the artifact hosted by PyPI.
 ```bash
 pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
-  sigstore/sigstore-3.6.1-py3-none-any.whl
+  pypi:sigstore-3.6.1-py3-none-any.whl
 
 # or alternatively:
 pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \

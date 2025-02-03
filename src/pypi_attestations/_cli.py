@@ -139,9 +139,8 @@ def _parser() -> argparse.ArgumentParser:
         "distribution_file",
         metavar="PYPI_FILE",
         type=str,
-        help="PyPI file to verify formatted as $PKG_NAME/$FILE_NAME, e.g: "
-        "sampleproject/sampleproject-1.0.0.tar.gz. Direct URLs to the hosted file are also "
-        "supported.",
+        help="PyPI file to verify, can be either: (1) pypi:$FILE_NAME (e.g. "
+        "pypi:sampleproject-1.0.0.tar.gz) or (2) A direct URL to files.pythonhosted.org",
     )
 
     verify_pypi_command.add_argument(
@@ -237,14 +236,23 @@ def _download_file(url: str, dest: Path) -> None:
 def _get_direct_url_from_arg(arg: str) -> URIReference:
     """Parse the artifact argument for the `verify pypi` subcommand.
 
-    The argument can be either a direct URL to a PyPI-hosted artifact,
-    or a friendly-formatted alternative: '$PKG_NAME/$FILE_NAME'.
+    The argument can be:
+    - A pypi: prefixed filename (e.g. pypi:sampleproject-1.0.0.tar.gz)
+    - A direct URL to a PyPI-hosted artifact
     """
     direct_url = None
-    components = arg.split("/")
-    # We support passing the file argument as $PKG_NAME/$FILE_NAME
-    if len(components) == 2:
-        pkg_name, file_name = components
+
+    if arg.startswith("pypi:"):
+        file_name = arg[5:]
+        try:
+            if file_name.endswith(".tar.gz") or file_name.endswith(".zip"):
+                pkg_name, _ = parse_sdist_filename(file_name)
+            elif file_name.endswith(".whl"):
+                pkg_name, _, _, _ = parse_wheel_filename(file_name)
+            else:
+                _die("File should be a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)")
+        except (InvalidSdistFilename, InvalidWheelFilename) as e:
+            _die(f"Invalid distribution filename: {e}")
 
         provenance_url = f"https://pypi.org/simple/{pkg_name}"
         response = requests.get(
@@ -261,7 +269,7 @@ def _get_direct_url_from_arg(arg: str) -> URIReference:
                 direct_url = file_json.get("url", "")
                 break
         if not direct_url:
-            _die(f"Could not find the artifact '{file_name}' for '{pkg_name}'")
+            _die(f"Could not find the artifact '{file_name}' on PyPI")
     else:
         direct_url = arg
 

@@ -373,8 +373,8 @@ def test_validate_files(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> Non
     [
         (pypi_wheel_url, pypi_wheel_filename),
         (pypi_sdist_url, pypi_sdist_filename),
-        (pypi_wheel_abbrev, pypi_wheel_filename),
-        (pypi_sdist_abbrev, pypi_sdist_filename),
+        (f"pypi:{pypi_wheel_filename}", pypi_wheel_filename),
+        (f"pypi:{pypi_sdist_filename}", pypi_sdist_filename),
     ],
 )
 def test_verify_pypi_command(
@@ -468,7 +468,7 @@ def test_verify_pypi_invalid_url(
     assert "Unsupported/invalid URL" in caplog.text
 
 
-def test_verify_pypi_invalid_file_name(
+def test_verify_pypi_invalid_file_name_url(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Failure because file is neither a wheer nor a sdist
@@ -501,6 +501,41 @@ def test_verify_pypi_invalid_file_name(
             ]
         )
     assert "Invalid wheel filename" in caplog.text
+
+
+def test_verify_pypi_invalid_sdist_filename_pypi(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Failure because file is neither a wheer nor a sdist
+    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                f"pypi:{pypi_wheel_filename}.invalid_ext",
+            ]
+        )
+    assert (
+        "File should be a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)" in caplog.text
+    )
+
+    caplog.clear()
+
+    """Test that invalid sdist filenames are properly handled."""
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "pypi:invalid-sdist-name.tar.gz",  # Invalid sdist filename format
+            ]
+        )
+    assert "Invalid distribution filename:" in caplog.text
 
 
 @online
@@ -575,10 +610,10 @@ def test_verify_pypi_error_finding_package_info(
                 "pypi",
                 "--repository",
                 "https://github.com/sigstore/sigstore-python",
-                "somepkg/somefile",
+                "pypi:somefile-1.0.0.tar.gz",
             ]
         )
-    assert "Error trying to get information for 'somepkg' from PyPI: myerror" in caplog.text
+    assert "Error trying to get information for 'somefile' from PyPI: myerror" in caplog.text
 
 
 def test_verify_pypi_error_finding_artifact_url(
@@ -594,10 +629,10 @@ def test_verify_pypi_error_finding_artifact_url(
                 "pypi",
                 "--repository",
                 "https://github.com/sigstore/sigstore-python",
-                "somepkg/somefile",
+                "pypi:somefile-1.0.0.tar.gz",
             ]
         )
-    assert "Could not find the artifact 'somefile' for 'somepkg'" in caplog.text
+    assert "Could not find the artifact 'somefile-1.0.0.tar.gz' on PyPI" in caplog.text
 
 
 def test_verify_pypi_error_validating_provenance(

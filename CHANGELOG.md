@@ -12,10 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI subcommand `verify attestation` now supports `.slsa.attestation`
   files. When verifying an artifact, both `.publish.attestation` and
   `.slsa.attestation` files are used (if present).
-- The CLI subcommand `verify attestation` now supports a friendlier
+- The CLI subcommand `verify pypi` now supports a friendlier
   syntax to specify the artifact to verify. The artifact can now be
-  specified as `$PKG_NAME/$FILE_NAME`, e.g: 
-  `sampleproject/sampleproject-1.0.0.tar.gz`. The old way (passing
+  specified with a `pypi:` prefix followed by the filename, e.g:
+  `pypi:sampleproject-1.0.0.tar.gz`. The old way (passing
   the direct URL) is still supported.
 
 ## [0.0.21]
