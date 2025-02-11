@@ -37,6 +37,8 @@ if typing.TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable
     from typing import NoReturn
 
+    from rfc3986 import URIReference
+
 logging.basicConfig(format="%(message)s", datefmt="[%X]", handlers=[logging.StreamHandler()])
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -134,10 +136,11 @@ def _parser() -> argparse.ArgumentParser:
     verify_pypi_command = verify_subcommands.add_parser(name="pypi", help="Verify a PyPI release")
 
     verify_pypi_command.add_argument(
-        "distribution_url",
-        metavar="URL_PYPI_FILE",
+        "distribution_file",
+        metavar="PYPI_FILE",
         type=str,
-        help='URL of the PyPI file to verify, i.e: "https://files.pythonhosted.org/..."',
+        help="PyPI file to verify, can be either: (1) pypi:$FILE_NAME (e.g. "
+        "pypi:sampleproject-1.0.0.tar.gz) or (2) A direct URL to files.pythonhosted.org",
     )
 
     verify_pypi_command.add_argument(
@@ -228,6 +231,61 @@ def _download_file(url: str, dest: Path) -> None:
                 f.write(chunk)
         except requests.RequestException as e:
             _die(f"Error downloading file: {e}")
+
+
+def _get_direct_url_from_arg(arg: str) -> URIReference:
+    """Parse the artifact argument for the `verify pypi` subcommand.
+
+    The argument can be:
+    - A pypi: prefixed filename (e.g. pypi:sampleproject-1.0.0.tar.gz)
+    - A direct URL to a PyPI-hosted artifact
+    """
+    direct_url = None
+
+    if arg.startswith("pypi:"):
+        file_name = arg[5:]
+        try:
+            if file_name.endswith(".tar.gz") or file_name.endswith(".zip"):
+                pkg_name, _ = parse_sdist_filename(file_name)
+            elif file_name.endswith(".whl"):
+                pkg_name, _, _, _ = parse_wheel_filename(file_name)
+            else:
+                _die("File should be a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)")
+        except (InvalidSdistFilename, InvalidWheelFilename) as e:
+            _die(f"Invalid distribution filename: {e}")
+
+        provenance_url = f"https://pypi.org/simple/{pkg_name}"
+        response = requests.get(
+            provenance_url, headers={"Accept": "application/vnd.pypi.simple.v1+json"}
+        )
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            _die(f"Error trying to get information for '{pkg_name}' from PyPI: {e}")
+
+        response_json = response.json()
+        for file_json in response_json.get("files", []):
+            if file_json.get("filename", "") == file_name:
+                direct_url = file_json.get("url", "")
+                break
+        if not direct_url:
+            _die(f"Could not find the artifact '{file_name}' on PyPI")
+    else:
+        direct_url = arg
+
+    validator = (
+        validators.Validator()
+        .allow_schemes("https")
+        .allow_hosts("files.pythonhosted.org")
+        .require_presence_of("scheme", "host")
+    )
+    try:
+        pypi_url = uri_reference(direct_url)
+        validator.validate(pypi_url)
+    except exceptions.RFC3986Exception as e:
+        _die(f"Unsupported/invalid URL: {e}")
+
+    return pypi_url
 
 
 def _get_provenance_from_pypi(filename: str) -> Provenance:
@@ -425,17 +483,7 @@ def _verify_pypi(args: argparse.Namespace) -> None:
     the provenance file hosted on PyPI (if any), and against the repository URL
     passed by the user as a CLI argument.
     """
-    validator = (
-        validators.Validator()
-        .allow_schemes("https")
-        .allow_hosts("files.pythonhosted.org")
-        .require_presence_of("scheme", "host")
-    )
-    try:
-        pypi_url = uri_reference(args.distribution_url)
-        validator.validate(pypi_url)
-    except exceptions.RFC3986Exception as e:
-        _die(f"Unsupported/invalid URL: {e}")
+    pypi_url = _get_direct_url_from_arg(args.distribution_file)
 
     with TemporaryDirectory() as temp_dir:
         dist_filename = pypi_url.path.split("/")[-1]
