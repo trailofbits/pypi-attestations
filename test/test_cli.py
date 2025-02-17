@@ -100,7 +100,7 @@ def test_sign_command(tmp_path: Path) -> None:
     copied_artifact_attestation = Path(f"{copied_artifact}.publish.attestation")
     assert copied_artifact_attestation.is_file()
 
-    attestation = Attestation.model_validate_json(copied_artifact_attestation.read_text())
+    attestation = Attestation.model_validate_json(copied_artifact_attestation.read_bytes())
     assert attestation.version
 
 
@@ -544,7 +544,7 @@ def test_verify_pypi_validation_fails(
 ) -> None:
     # Replace the actual wheel with another file
     def _download_file(url: str, dest: Path) -> None:
-        with open(dest, "w") as f:
+        with open(dest, "w", encoding="utf-8") as f:
             f.write("random wheel file")
 
     monkeypatch.setattr(pypi_attestations._cli, "_download_file", _download_file)
