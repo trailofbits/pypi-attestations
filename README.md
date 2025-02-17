@@ -52,8 +52,8 @@ print(attestation.model_dump_json())
 attestation_path = Path("test_package-0.0.1-py3-none-any.whl.attestation")
 attestation = Attestation.model_validate_json(attestation_path.read_bytes())
 verifier = Verifier.production()
-policy = policy.Identity(identity="example@gmail.com", issuer="https://accounts.google.com")
-attestation.verify(verifier, policy, dist)
+identity = policy.Identity(identity="example@gmail.com", issuer="https://accounts.google.com")
+attestation.verify(identity=identity, dist=dist)
 ```
 
 ### Low-level model conversions
