@@ -393,7 +393,7 @@ def _inspect(args: argparse.Namespace) -> None:
     _validate_files(args.files, should_exist=True)
     for file_path in args.files:
         try:
-            attestation = Attestation.model_validate_json(file_path.read_text())
+            attestation = Attestation.model_validate_json(file_path.read_bytes())
         except ValidationError as validation_error:
             _die(f"Invalid attestation ({file_path}): {validation_error}")
 
@@ -459,7 +459,7 @@ def _verify_attestation(args: argparse.Namespace) -> None:
     for file_path, attestations in files_with_attestations.items():
         for attestation_path in attestations:
             try:
-                attestation = Attestation.model_validate_json(attestation_path.read_text())
+                attestation = Attestation.model_validate_json(attestation_path.read_bytes())
             except ValidationError as validation_error:
                 _die(f"Invalid attestation ({attestation_path}): {validation_error}")
 

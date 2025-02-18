@@ -156,7 +156,7 @@ class TestAttestation:
             workflow_filepath=".gitlab-ci.yml",
         )
 
-        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_bytes())
         predicate_type, predicate = attestation.verify(publisher, gl_signed_dist)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate is None
@@ -179,7 +179,7 @@ class TestAttestation:
             workflow_filepath="wrong.yml",
         )
 
-        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_bytes())
         with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
             attestation.verify(publisher, gl_signed_dist)
 
@@ -189,7 +189,7 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
         predicate_type, predicate = attestation.verify(pol, dist, staging=True)
 
         assert attestation.statement["_type"] == "https://in-toto.io/Statement/v1"
@@ -210,7 +210,7 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         modified_dist_path = tmp_path / dist_path.name
         modified_dist_path.write_bytes(b"nothing")
@@ -229,7 +229,7 @@ class TestAttestation:
             identity="william@yossarian.net", issuer="https://github.com/login/oauth"
         )
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         modified_dist_path = tmp_path / "wrong_name-0.1.2-py3-none-any.whl"
         modified_dist_path.write_bytes(dist_path.read_bytes())
@@ -246,7 +246,7 @@ class TestAttestation:
         # Wrong identity.
         pol = policy.Identity(identity="fake@example.com", issuer="https://github.com/login/oauth")
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match=r"Certificate's SANs do not match"):
             attestation.verify(pol, dist, staging=True)
@@ -260,7 +260,7 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="expected JSON envelope, got fake-type"):
             attestation.verify(pol, dist, staging=True)
@@ -276,7 +276,7 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid statement"):
             attestation.verify(pol, dist, staging=True)
@@ -308,7 +308,7 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="too many subjects in statement"):
             attestation.verify(pol, dist, staging=True)
@@ -339,7 +339,7 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: missing name"):
             attestation.verify(pol, dist, staging=True)
@@ -373,7 +373,7 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
             attestation.verify(pol, dist, staging=True)
@@ -413,14 +413,14 @@ class TestAttestation:
         monkeypatch.setattr(impl.Verifier, "staging", staging)
         pol = pretend.stub()
 
-        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_text())
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
             attestation.verify(pol, dist, staging=True)
 
     def test_certificate_claims(self) -> None:
         attestation = impl.Attestation.model_validate_json(
-            pypi_attestations_attestation.read_text()
+            pypi_attestations_attestation.read_bytes()
         )
 
         results = {
