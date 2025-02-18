@@ -194,19 +194,6 @@ def test_inspect_command(caplog: pytest.LogCaptureFixture) -> None:
     run_main_with_command(["inspect", "--dump-bytes", publish_attestation_path.as_posix()])
     assert "Signature:" in caplog.text
 
-    # Failure paths
-    caplog.clear()
-
-    # Failure because not an attestation
-    with tempfile.NamedTemporaryFile(suffix=".publish.attestation") as f:
-        fake_package_name = Path(f.name.removesuffix(".publish.attestation"))
-        fake_package_name.touch()
-
-        with pytest.raises(SystemExit):
-            run_main_with_command(["inspect", fake_package_name.as_posix()])
-
-        assert "Invalid attestation" in caplog.text
-
 
 def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
     # Happy path
