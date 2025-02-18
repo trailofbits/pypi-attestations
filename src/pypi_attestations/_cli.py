@@ -390,8 +390,9 @@ def _inspect(args: argparse.Namespace) -> None:
 
     Warning: The information displayed from the attestations are not verified.
     """
-    _validate_files(args.files, should_exist=True)
-    for file_path in args.files:
+    attestation_files = [f for f in args.files if f.suffix == '.attestation']
+    _validate_files(attestation_files, should_exist=True)
+    for file_path in attestation_files:
         try:
             attestation = Attestation.model_validate_json(file_path.read_bytes())
         except ValidationError as validation_error:
