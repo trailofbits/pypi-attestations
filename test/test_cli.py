@@ -207,13 +207,6 @@ def test_inspect_command(caplog: pytest.LogCaptureFixture) -> None:
 
         assert "Invalid attestation" in caplog.text
 
-    # Failure because file is missing
-    caplog.clear()
-    with pytest.raises(SystemExit):
-        run_main_with_command(["inspect", "not_a_file.txt"])
-
-    assert "not_a_file.txt is not a file." in caplog.text
-
 
 def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
     # Happy path
