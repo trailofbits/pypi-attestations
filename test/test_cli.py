@@ -199,20 +199,13 @@ def test_inspect_command(caplog: pytest.LogCaptureFixture) -> None:
 
     # Failure because not an attestation
     with tempfile.NamedTemporaryFile(suffix=".publish.attestation") as f:
-        fake_package_name = Path(f.name.removesuffix(".publish.attestation"))
-        fake_package_name.touch()
+        f.write(b"not an attestation")
+        f.flush()
 
         with pytest.raises(SystemExit):
-            run_main_with_command(["inspect", fake_package_name.as_posix()])
+            run_main_with_command(["inspect", f.name])
 
         assert "Invalid attestation" in caplog.text
-
-    # Failure because file is missing
-    caplog.clear()
-    with pytest.raises(SystemExit):
-        run_main_with_command(["inspect", "not_a_file.txt"])
-
-    assert "not_a_file.txt is not a file." in caplog.text
 
 
 def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:

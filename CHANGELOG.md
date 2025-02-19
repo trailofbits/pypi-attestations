@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `inspect` subcommand now ignores inputs that don't match `*.attestation`,
+  rather than failing on them
+  ([#93](https://github.com/trailofbits/pypi-attestations/pull/93))
+
 ### Added
 
 - The CLI subcommand `verify attestation` now supports `.slsa.attestation`
@@ -22,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The CLI entrypoint is now `pypi-attestations` 
+- The CLI entrypoint is now `pypi-attestations`
   ([#82](https://github.com/trailofbits/pypi-attestations/pull/82))
 - The CLI `verify` subcommand has been changed to `verify attestation`,
   as in `pypi-attestations verify attestation --identity ...`
