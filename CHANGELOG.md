@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   specified with a `pypi:` prefix followed by the filename, e.g:
   `pypi:sampleproject-1.0.0.tar.gz`. The old way (passing
   the direct URL) is still supported.
+- The CLI subcommand `verify pypi` now supports passing the local paths
+  to the artifact and its provenance file, allowing the user to verify
+  files already downloaded from PyPI. The artifact path is passed as
+  usual, whereas the provenance file path is passed using the
+  `--provenance-file` option.
 
 ## [0.0.21]
 

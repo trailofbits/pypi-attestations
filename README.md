@@ -142,16 +142,23 @@ pypi-attestations verify attestation  \
 
 ### Verifying a PyPI package
 > [!NOTE]
-> The package to verify can be passed either as a `pypi:` prefixed filename (e.g:
-> 'pypi:sampleproject-1.0.0-py3-none-any.whl'), or as a direct URL
-> to the artifact hosted by PyPI.
+> The package to verify can be passed either as a path to a local file, a
+> `pypi:` prefixed filename (e.g: 'pypi:sampleproject-1.0.0-py3-none-any.whl'),
+> or as a direct URL to the artifact hosted by PyPI.
+
 ```bash
+# Download the artifact (and its provenance) from PyPI and verify it
 pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
   pypi:sigstore-3.6.1-py3-none-any.whl
 
-# or alternatively:
+# or alternatively, using the direct URL:
 pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
   https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl
+
+# Verify the artifact and its provenance using local files
+pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-python \
+  --provenance-file ~/Downloads/sigstore-3.6.1-py3-none-any.whl.provenance \
+  ~/Downloads/sigstore-3.6.1-py3-none-any.whl
 ```
 
 This command downloads the artifact and its provenance from PyPI. The artifact 
