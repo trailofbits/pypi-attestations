@@ -157,6 +157,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Use the staging environment",
     )
 
+    verify_pypi_command.add_argument(
+        "--provenance-file",
+        type=Path,
+        help="Provide the provenance file instead of downloading it from PyPI",
+    )
+
     inspect_command = subcommands.add_parser(
         name="inspect",
         help="Inspect one or more inputs",
@@ -233,8 +239,32 @@ def _download_file(url: str, dest: Path) -> None:
             _die(f"Error downloading file: {e}")
 
 
-def _get_direct_url_from_arg(arg: str) -> URIReference:
+def _get_distribution_from_arg(arg: str) -> Distribution:
     """Parse the artifact argument for the `verify pypi` subcommand.
+
+    The argument can be:
+    - A pypi: prefixed filename (e.g. pypi:sampleproject-1.0.0.tar.gz)
+    - A direct URL to a PyPI-hosted artifact
+    - A path to a local file
+    """
+    if arg.startswith("pypi:") or arg.startswith("https://"):
+        pypi_url = _get_direct_url_from_arg(arg)
+        dist_filename = pypi_url.path.split("/")[-1]
+        with TemporaryDirectory() as temp_dir:
+            dist_path = Path(temp_dir) / dist_filename
+            _download_file(url=pypi_url.unsplit(), dest=dist_path)
+            dist = Distribution.from_file(dist_path)
+    else:
+        dist_path = Path(arg)
+        if not dist_path.exists():
+            _die(f"File does not exist: {dist_path}")
+        dist = Distribution.from_file(dist_path)
+
+    return dist
+
+
+def _get_direct_url_from_arg(arg: str) -> URIReference:
+    """Get the URL from the artifact argument for the `verify pypi` subcommand.
 
     The argument can be:
     - A pypi: prefixed filename (e.g. pypi:sampleproject-1.0.0.tar.gz)
@@ -288,17 +318,14 @@ def _get_direct_url_from_arg(arg: str) -> URIReference:
     return pypi_url
 
 
-def _get_provenance_from_pypi(filename: str) -> Provenance:
+def _get_provenance_from_pypi(dist: Distribution) -> Provenance:
     """Use PyPI's integrity API to get a distribution's provenance."""
-    try:
-        if filename.endswith(".tar.gz") or filename.endswith(".zip"):
-            name, version = parse_sdist_filename(filename)
-        elif filename.endswith(".whl"):
-            name, version, _, _ = parse_wheel_filename(filename)
-        else:
-            _die("URL should point to a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)")
-    except (InvalidSdistFilename, InvalidWheelFilename) as e:
-        _die(f"Invalid distribution filename: {e}")
+    filename = dist.name
+    # Filename is already validated when creating the Distribution object
+    if filename.endswith(".tar.gz") or filename.endswith(".zip"):
+        name, version = parse_sdist_filename(filename)
+    else:
+        name, version, _, _ = parse_wheel_filename(filename)
 
     provenance_url = f"https://pypi.org/integrity/{name}/{version}/{filename}/provenance"
     response = requests.get(provenance_url)
@@ -480,31 +507,34 @@ def _verify_attestation(args: argparse.Namespace) -> None:
 def _verify_pypi(args: argparse.Namespace) -> None:
     """Verify a distribution hosted on PyPI.
 
-    The distribution is downloaded and verified. The verification is against
-    the provenance file hosted on PyPI (if any), and against the repository URL
-    passed by the user as a CLI argument.
+    The distribution is downloaded (if needed) and verified. The verification is against
+    the provenance file (passed using the `--provenance-file` option, or downloaded
+    from PyPI if not provided), and against the repository URL passed by the user
+    as a CLI argument.
     """
-    pypi_url = _get_direct_url_from_arg(args.distribution_file)
+    dist = _get_distribution_from_arg(args.distribution_file)
 
-    with TemporaryDirectory() as temp_dir:
-        dist_filename = pypi_url.path.split("/")[-1]
-        dist_path = Path(temp_dir) / dist_filename
-        _download_file(url=pypi_url.unsplit(), dest=dist_path)
-        provenance = _get_provenance_from_pypi(dist_filename)
-        dist = Distribution.from_file(dist_path)
+    if args.provenance_file is None:
+        provenance = _get_provenance_from_pypi(dist)
+    else:
+        if not args.provenance_file.exists():
+            _die(f"Provenance file does not exist: {args.provenance_file}")
         try:
-            for attestation_bundle in provenance.attestation_bundles:
-                publisher = attestation_bundle.publisher
-                _check_repository_identity(
-                    expected_repository_url=args.repository, publisher=publisher
-                )
-                policy = publisher._as_policy()  # noqa: SLF001.
-                for attestation in attestation_bundle.attestations:
-                    attestation.verify(policy, dist, staging=args.staging)
-        except VerificationError as verification_error:
-            _die(f"Verification failed for {dist_filename}: {verification_error}")
+            provenance = Provenance.model_validate_json(args.provenance_file.read_bytes())
+        except ValidationError as validation_error:
+            _die(f"Invalid provenance: {validation_error}")
 
-    _logger.info(f"OK: {dist_filename}")
+    try:
+        for attestation_bundle in provenance.attestation_bundles:
+            publisher = attestation_bundle.publisher
+            _check_repository_identity(expected_repository_url=args.repository, publisher=publisher)
+            policy = publisher._as_policy()  # noqa: SLF001.
+            for attestation in attestation_bundle.attestations:
+                attestation.verify(policy, dist, staging=args.staging)
+    except VerificationError as verification_error:
+        _die(f"Verification failed for {dist.name}: {verification_error}")
+
+    _logger.info(f"OK: {dist.name}")
 
 
 def main() -> None:
