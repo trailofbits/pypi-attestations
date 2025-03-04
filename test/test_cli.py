@@ -21,7 +21,7 @@ from pypi_attestations._cli import (
     get_identity_token,
     main,
 )
-from pypi_attestations._impl import Attestation, AttestationError
+from pypi_attestations._impl import Attestation, AttestationError, Distribution
 
 ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
@@ -41,6 +41,8 @@ pypi_wheel_filename = pypi_wheel_url.split("/")[-1]
 pypi_sdist_filename = pypi_sdist_url.split("/")[-1]
 pypi_wheel_abbrev = f"sigstore/{pypi_wheel_filename}"
 pypi_sdist_abbrev = f"sigstore/{pypi_sdist_filename}"
+pypi_sdist_path = _ASSETS / pypi_sdist_filename
+pypi_sdist_provenance_path = _ASSETS / f"{pypi_sdist_filename}.provenance"
 
 
 def run_main_with_command(cmd: list[str]) -> None:
@@ -386,6 +388,21 @@ def test_verify_pypi_command(
     assert f"OK: {filename}" in caplog.text
 
 
+def test_verify_pypi_command_with_local_files(caplog: pytest.LogCaptureFixture) -> None:
+    run_main_with_command(
+        [
+            "verify",
+            "pypi",
+            "--repository",
+            "https://github.com/sigstore/sigstore-python",
+            "--provenance-file",
+            pypi_sdist_provenance_path.as_posix(),
+            pypi_sdist_path.as_posix(),
+        ]
+    )
+    assert f"OK: {pypi_sdist_filename}" in caplog.text
+
+
 @online
 def test_verify_pypi_command_env_fail(caplog: pytest.LogCaptureFixture) -> None:
     with pytest.raises(SystemExit):
@@ -459,41 +476,6 @@ def test_verify_pypi_invalid_url(
             ]
         )
     assert "Unsupported/invalid URL" in caplog.text
-
-
-def test_verify_pypi_invalid_file_name_url(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Failure because file is neither a wheer nor a sdist
-    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
-    with pytest.raises(SystemExit):
-        run_main_with_command(
-            [
-                "verify",
-                "pypi",
-                "--repository",
-                "https://github.com/sigstore/sigstore-python",
-                pypi_wheel_url + ".invalid_ext",
-            ]
-        )
-    assert (
-        "URL should point to a wheel (*.whl) or a source distribution (*.zip or *.tar.gz)"
-        in caplog.text
-    )
-
-    caplog.clear()
-
-    with pytest.raises(SystemExit):
-        run_main_with_command(
-            [
-                "verify",
-                "pypi",
-                "--repository",
-                "https://github.com/sigstore/sigstore-python",
-                pypi_wheel_url + "/invalid-wheel-name-9.9.9-.whl",
-            ]
-        )
-    assert "Invalid wheel filename" in caplog.text
 
 
 def test_verify_pypi_invalid_sdist_filename_pypi(
@@ -573,7 +555,11 @@ def test_verify_pypi_error_getting_provenance(
     expected_error: str,
 ) -> None:
     # Failure to get provenance from PyPI
-    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    monkeypatch.setattr(
+        pypi_attestations._cli,
+        "_get_distribution_from_arg",
+        lambda arg: Distribution(name=pypi_wheel_filename, digest="a"),
+    )
     response = requests.Response()
     response.status_code = status_code
     monkeypatch.setattr(requests, "get", lambda url: response)
@@ -633,7 +619,11 @@ def test_verify_pypi_error_validating_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Failure to validate provenance JSON
-    monkeypatch.setattr(pypi_attestations._cli, "_download_file", lambda url, dest: None)
+    monkeypatch.setattr(
+        pypi_attestations._cli,
+        "_get_distribution_from_arg",
+        lambda arg: Distribution(name=pypi_wheel_filename, digest="a"),
+    )
     response = stub(status_code=200, raise_for_status=lambda: None, text="not json")
     response.status_code = 200
     monkeypatch.setattr(requests, "get", lambda url: response)
@@ -716,3 +706,63 @@ def test_verify_pypi_command_invalid_repository_argument(
         )
 
     assert expected_error in caplog.text
+
+
+def test_verify_pypi_command_local_nonexistent_artifact(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "--provenance-file",
+                pypi_sdist_provenance_path.as_posix(),
+                "nonexistent-artifact.whl",
+            ]
+        )
+    assert "File does not exist: nonexistent-artifact.whl" in caplog.text
+
+
+def test_verify_pypi_command_local_nonexistent_provenance(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--repository",
+                "https://github.com/sigstore/sigstore-python",
+                "--provenance-file",
+                "nonexistent-provenance.json",
+                pypi_sdist_path.as_posix(),
+            ]
+        )
+    assert "Provenance file does not exist: nonexistent-provenance.json" in caplog.text
+
+
+def test_verify_pypi_command_local_invalid_provenance(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        pypi_attestations._cli,
+        "_get_distribution_from_arg",
+        lambda arg: Distribution(name=pypi_sdist_filename, digest="a"),
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".provenance") as f:
+        f.write(b"not a valid provenance")
+        f.flush()
+        with pytest.raises(SystemExit):
+            run_main_with_command(
+                [
+                    "verify",
+                    "pypi",
+                    "--repository",
+                    "https://github.com/sigstore/sigstore-python",
+                    "--provenance-file",
+                    f.name,
+                    pypi_sdist_path.as_posix(),
+                ]
+            )
+
+    assert "Invalid provenance" in caplog.text
