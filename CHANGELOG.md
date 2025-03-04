@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.22]
+
 ### Changed
 
 - The `inspect` subcommand now ignores inputs that don't match `*.attestation`,
@@ -254,7 +256,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.21...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.22...HEAD
+[0.0.22]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.21...v0.0.22
 [0.0.21]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.20...v0.0.21
 [0.0.20]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.19...v0.0.20
 [0.0.19]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.18...v0.0.19
