@@ -51,7 +51,6 @@ print(attestation.model_dump_json())
 # Verify an attestation against a Python artifact
 attestation_path = Path("test_package-0.0.1-py3-none-any.whl.attestation")
 attestation = Attestation.model_validate_json(attestation_path.read_bytes())
-verifier = Verifier.production()
 identity = policy.Identity(identity="example@gmail.com", issuer="https://accounts.google.com")
 attestation.verify(identity=identity, dist=dist)
 ```

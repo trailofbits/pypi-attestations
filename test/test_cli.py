@@ -23,9 +23,11 @@ from pypi_attestations._cli import (
 )
 from pypi_attestations._impl import Attestation, AttestationError, Distribution
 
-ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
-online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
+ONLINE_TESTS = (
+    "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
+) and "TEST_OFFLINE" not in os.environ
 
+online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
 
 _HERE = Path(__file__).parent
 _ASSETS = _HERE / "assets"
@@ -216,6 +218,7 @@ def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
         [
             "verify",
             "attestation",
+            "--offline",
             "--identity",
             publish_attestation_identity,
             artifact_path.as_posix(),
@@ -233,6 +236,7 @@ def test_verify_attestation_command(caplog: pytest.LogCaptureFixture) -> None:
                 "verify",
                 "attestation",
                 "--staging",
+                "--offline",
                 "--identity",
                 publish_attestation_identity,
                 artifact_path.as_posix(),
@@ -256,6 +260,7 @@ def test_verify_attestation_invalid_attestation(caplog: pytest.LogCaptureFixture
                 [
                     "verify",
                     "attestation",
+                    "--offline",
                     "--identity",
                     publish_attestation_identity,
                     fake_package_name.as_posix(),
@@ -271,6 +276,7 @@ def test_verify_attestation_missing_artifact(caplog: pytest.LogCaptureFixture) -
             [
                 "verify",
                 "attestation",
+                "--offline",
                 "--identity",
                 publish_attestation_identity,
                 "not_a_file.txt",
@@ -288,6 +294,7 @@ def test_verify_attestation_missing_attestation(caplog: pytest.LogCaptureFixture
                 [
                     "verify",
                     "attestation",
+                    "--offline",
                     "--identity",
                     publish_attestation_identity,
                     f.name,
@@ -310,6 +317,7 @@ def test_verify_attestation_invalid_artifact(
             [
                 "verify",
                 "attestation",
+                "--offline",
                 "--identity",
                 publish_attestation_identity,
                 copied_artifact.as_posix(),
@@ -393,6 +401,7 @@ def test_verify_pypi_command_with_local_files(caplog: pytest.LogCaptureFixture) 
         [
             "verify",
             "pypi",
+            "--offline",
             "--repository",
             "https://github.com/trailofbits/pypi-attestations",
             "--provenance-file",
@@ -401,6 +410,40 @@ def test_verify_pypi_command_with_local_files(caplog: pytest.LogCaptureFixture) 
         ]
     )
     assert f"OK: {pypi_sdist_filename}" in caplog.text
+
+
+def test_verify_pypi_command_offline_without_local_dist(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--repository",
+                "https://github.com/trailofbits/pypi-attestations",
+                "--provenance-file",
+                pypi_sdist_provenance_path.as_posix(),
+                pypi_sdist_url,
+            ]
+        )
+    assert "The '--offline' option can only be used with local files" in caplog.text
+
+
+def test_verify_pypi_command_offline_without_local_provenance(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--repository",
+                "https://github.com/trailofbits/pypi-attestations",
+                pypi_sdist_path.as_posix(),
+            ]
+        )
+    assert "The '--offline' option can only be used with local files" in caplog.text
 
 
 @online
@@ -558,7 +601,7 @@ def test_verify_pypi_error_getting_provenance(
     monkeypatch.setattr(
         pypi_attestations._cli,
         "_get_distribution_from_arg",
-        lambda arg: Distribution(name=pypi_wheel_filename, digest="a"),
+        lambda arg, offline: Distribution(name=pypi_wheel_filename, digest="a"),
     )
     response = requests.Response()
     response.status_code = status_code
@@ -622,7 +665,7 @@ def test_verify_pypi_error_validating_provenance(
     monkeypatch.setattr(
         pypi_attestations._cli,
         "_get_distribution_from_arg",
-        lambda arg: Distribution(name=pypi_wheel_filename, digest="a"),
+        lambda arg, offline: Distribution(name=pypi_wheel_filename, digest="a"),
     )
     response = stub(status_code=200, raise_for_status=lambda: None, text="not json")
     response.status_code = 200
@@ -714,6 +757,7 @@ def test_verify_pypi_command_local_nonexistent_artifact(caplog: pytest.LogCaptur
             [
                 "verify",
                 "pypi",
+                "--offline",
                 "--repository",
                 "https://github.com/trailofbits/pypi-attestations",
                 "--provenance-file",
@@ -730,6 +774,7 @@ def test_verify_pypi_command_local_nonexistent_provenance(caplog: pytest.LogCapt
             [
                 "verify",
                 "pypi",
+                "--offline",
                 "--repository",
                 "https://github.com/trailofbits/pypi-attestations",
                 "--provenance-file",
@@ -746,7 +791,7 @@ def test_verify_pypi_command_local_invalid_provenance(
     monkeypatch.setattr(
         pypi_attestations._cli,
         "_get_distribution_from_arg",
-        lambda arg: Distribution(name=pypi_sdist_filename, digest="a"),
+        lambda arg, offline: Distribution(name=pypi_sdist_filename, digest="a"),
     )
 
     with tempfile.NamedTemporaryFile(suffix=".provenance") as f:
@@ -757,6 +802,7 @@ def test_verify_pypi_command_local_invalid_provenance(
                 [
                     "verify",
                     "pypi",
+                    "--offline",
                     "--repository",
                     "https://github.com/trailofbits/pypi-attestations",
                     "--provenance-file",

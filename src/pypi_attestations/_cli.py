@@ -126,6 +126,13 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     verify_attestation_command.add_argument(
+        "--offline",
+        action="store_true",
+        default=False,
+        help="Disable TUF refresh",
+    )
+
+    verify_attestation_command.add_argument(
         "files",
         metavar="FILE",
         type=Path,
@@ -155,6 +162,13 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Use the staging environment",
+    )
+
+    verify_pypi_command.add_argument(
+        "--offline",
+        action="store_true",
+        default=False,
+        help="Force use of local files and disable TUF refresh",
     )
 
     verify_pypi_command.add_argument(
@@ -239,7 +253,7 @@ def _download_file(url: str, dest: Path) -> None:
             _die(f"Error downloading file: {e}")
 
 
-def _get_distribution_from_arg(arg: str) -> Distribution:
+def _get_distribution_from_arg(arg: str, offline: bool) -> Distribution:
     """Parse the artifact argument for the `verify pypi` subcommand.
 
     The argument can be:
@@ -248,6 +262,8 @@ def _get_distribution_from_arg(arg: str) -> Distribution:
     - A path to a local file
     """
     if arg.startswith("pypi:") or arg.startswith("https://"):
+        if offline:
+            _die("The '--offline' option can only be used with local files")
         pypi_url = _get_direct_url_from_arg(arg)
         dist_filename = pypi_url.path.split("/")[-1]
         with TemporaryDirectory() as temp_dir:
@@ -497,7 +513,7 @@ def _verify_attestation(args: argparse.Namespace) -> None:
                 _die(f"Invalid Python package distribution: {e}")
 
             try:
-                attestation.verify(pol, dist, staging=args.staging)
+                attestation.verify(pol, dist, staging=args.staging, offline=args.offline)
             except VerificationError as verification_error:
                 _die(f"Verification failed for {file_path}: {verification_error}")
 
@@ -512,9 +528,11 @@ def _verify_pypi(args: argparse.Namespace) -> None:
     from PyPI if not provided), and against the repository URL passed by the user
     as a CLI argument.
     """
-    dist = _get_distribution_from_arg(args.distribution_file)
+    dist = _get_distribution_from_arg(args.distribution_file, offline=args.offline)
 
     if args.provenance_file is None:
+        if args.offline:
+            _die("The '--offline' option can only be used with local files")
         provenance = _get_provenance_from_pypi(dist)
     else:
         if not args.provenance_file.exists():
@@ -530,7 +548,7 @@ def _verify_pypi(args: argparse.Namespace) -> None:
             _check_repository_identity(expected_repository_url=args.repository, publisher=publisher)
             policy = publisher._as_policy()  # noqa: SLF001.
             for attestation in attestation_bundle.attestations:
-                attestation.verify(policy, dist, staging=args.staging)
+                attestation.verify(policy, dist, staging=args.staging, offline=args.offline)
     except VerificationError as verification_error:
         _die(f"Verification failed for {dist.name}: {verification_error}")
 

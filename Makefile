@@ -70,6 +70,11 @@ test tests: $(VENV)/pyvenv.cfg
 		pytest --cov=$(PY_IMPORT) $(T) $(TEST_ARGS) && \
 		python -m coverage report -m $(COV_ARGS)
 
+.PHONY: test-nocoverage
+test-nocoverage: $(VENV)/pyvenv.cfg
+	. $(VENV_BIN)/activate && \
+		pytest $(T) $(TEST_ARGS)
+
 .PHONY: doc
 doc: $(VENV)/pyvenv.cfg
 	. $(VENV_BIN)/activate && \
