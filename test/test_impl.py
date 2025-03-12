@@ -204,7 +204,7 @@ class TestAttestation:
 
         # convert the attestation to a bundle and verify it that way too
         bundle = attestation.to_bundle()
-        Verifier.staging().verify_dsse(bundle, policy.UnsafeNoOp())
+        Verifier.staging(offline=True).verify_dsse(bundle, policy.UnsafeNoOp())
 
     def test_verify_digest_mismatch(self, tmp_path: Path) -> None:
         # Our checked-in asset has this identity.
