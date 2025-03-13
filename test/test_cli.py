@@ -21,7 +21,7 @@ from pypi_attestations._cli import (
     get_identity_token,
     main,
 )
-from pypi_attestations._impl import Attestation, AttestationError, Distribution
+from pypi_attestations._impl import Attestation, AttestationError, ConversionError, Distribution
 
 ONLINE_TESTS = (
     "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
@@ -45,6 +45,9 @@ pypi_wheel_abbrev = f"pypi-attestations/{pypi_wheel_filename}"
 pypi_sdist_abbrev = f"pypi-attestations/{pypi_sdist_filename}"
 pypi_sdist_path = _ASSETS / pypi_sdist_filename
 pypi_sdist_provenance_path = _ASSETS / f"{pypi_sdist_filename}.provenance"
+
+sigstore_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.sigstore"
+converted_sigstore_bundle_path = _ASSETS / "pypi_attestation_models-0.0.4a2.tar.gz.attestation"
 
 
 def run_main_with_command(cmd: list[str]) -> None:
@@ -812,3 +815,101 @@ def test_verify_pypi_command_local_invalid_provenance(
             )
 
     assert "Invalid provenance" in caplog.text
+
+
+def test_convert_command(caplog: pytest.LogCaptureFixture) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_attestation_path = Path(tmpdir) / "temp.attestation"
+        run_main_with_command(
+            [
+                "convert",
+                "--output-file",
+                output_attestation_path.as_posix(),
+                sigstore_bundle_path.as_posix(),
+            ]
+        )
+        assert output_attestation_path.is_file()
+        converted_attestation = Attestation.model_validate_json(
+            output_attestation_path.read_bytes()
+        )
+        known_good_attestation = Attestation.model_validate_json(
+            converted_sigstore_bundle_path.read_bytes()
+        )
+
+        assert converted_attestation.version == 1
+        assert (
+            converted_attestation.verification_material
+            == known_good_attestation.verification_material
+        )
+        assert converted_attestation.envelope == known_good_attestation.envelope
+
+
+def test_convert_command_invalid_bundle(caplog: pytest.LogCaptureFixture) -> None:
+    with tempfile.NamedTemporaryFile(suffix=".sigstore") as f:
+        f.write(b"not a valid bundle")
+        f.flush()
+        with pytest.raises(SystemExit):
+            run_main_with_command(
+                [
+                    "convert",
+                    "--output-file",
+                    "temp.attestation",
+                    f.name,
+                ]
+            )
+
+    assert not Path("temp.attestation").exists()
+    assert "Invalid Sigstore bundle" in caplog.text
+
+
+def test_convert_command_conversion_error(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        pypi_attestations._cli, "Attestation", stub(from_bundle=raiser(ConversionError))
+    )
+
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "convert",
+                "--output-file",
+                "temp.attestation",
+                sigstore_bundle_path.as_posix(),
+            ]
+        )
+
+    assert not Path("temp.attestation").exists()
+    assert "Failed to convert Sigstore bundle" in caplog.text
+
+
+def test_convert_command_nonexistent_bundle(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "convert",
+                "--output-file",
+                "temp.attestation",
+                "temp.sigstore",
+            ]
+        )
+
+    assert not Path("temp.attestation").exists()
+    assert "Bundle file does not exist" in caplog.text
+
+
+def test_convert_command_existent_output_file(caplog: pytest.LogCaptureFixture) -> None:
+    with tempfile.NamedTemporaryFile(suffix=".attestation") as f:
+        output_attestation_path = Path(f.name)
+        assert output_attestation_path.exists()
+        with pytest.raises(SystemExit):
+            run_main_with_command(
+                [
+                    "convert",
+                    "--output-file",
+                    output_attestation_path.as_posix(),
+                    sigstore_bundle_path.as_posix(),
+                ]
+            )
+
+    assert "Output file already exists" in caplog.text

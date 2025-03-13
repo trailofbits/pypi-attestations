@@ -21,12 +21,14 @@ from packaging.utils import (
 )
 from pydantic import ValidationError
 from rfc3986 import exceptions, uri_reference, validators
+from sigstore.models import Bundle, InvalidBundle
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
 from sigstore.verify import policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
 from pypi_attestations._impl import (
+    ConversionError,
     Distribution,
     GitHubPublisher,
     Provenance,
@@ -195,9 +197,28 @@ def _parser() -> argparse.ArgumentParser:
         metavar="FILE",
         type=Path,
         nargs="+",
-        help="The file to sign",
+        help="The file to inspect",
     )
 
+    convert_command = subcommands.add_parser(
+        name="convert",
+        help="Convert a Sigstore bundle into a PEP 740 attestation",
+        parents=[parent_parser],
+    )
+
+    convert_command.add_argument(
+        "bundle_file",
+        metavar="BUNDLE_FILE",
+        type=Path,
+        help="The Sigstore bundle to convert",
+    )
+
+    convert_command.add_argument(
+        "--output-file",
+        required=True,
+        type=Path,
+        help="The output file to write the attestation to",
+    )
     return parser
 
 
@@ -555,6 +576,26 @@ def _verify_pypi(args: argparse.Namespace) -> None:
     _logger.info(f"OK: {dist.name}")
 
 
+def _convert(args: argparse.Namespace) -> None:
+    """Convert a Sigstore bundle into a PEP 740 attestation."""
+    if not args.bundle_file.exists():
+        _die(f"Bundle file does not exist: {args.bundle_file}")
+
+    if args.output_file.exists():
+        _die(f"Output file already exists: {args.output_file}")
+
+    try:
+        sigstore_bundle = Bundle.from_json(args.bundle_file.read_bytes())
+        attestation_object = Attestation.from_bundle(sigstore_bundle)
+    except (InvalidBundle, json.JSONDecodeError) as e:
+        _die(f"Invalid Sigstore bundle: {e}")
+    except ConversionError as e:
+        _die(f"Failed to convert Sigstore bundle: {e}")
+
+    args.output_file.write_text(attestation_object.model_dump_json())
+    _logger.info(f"Converted Sigstore bundle to attestation: {args.output_file}")
+
+
 def main() -> None:
     """Dispatch the CLI subcommand."""
     parser = _parser()
@@ -578,3 +619,5 @@ def main() -> None:
             _verify_pypi(args)
     elif args.subcommand == "inspect":
         _inspect(args)
+    elif args.subcommand == "convert":
+        _convert(args)

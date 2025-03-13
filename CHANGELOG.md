@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The CLI has a new subcommand `convert`, which takes a Sigstore bundle
+  and converts it to a PEP 740 attestation.
+
 ### Changed
 
 - The `Attestation.verify(...)` API has been changed to accept an `offline`
