@@ -35,12 +35,12 @@ publish_attestation_identity = "https://github.com/trailofbits/pypi-attestations
 publish_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.publish.attestation"
 slsa_attestation_path = _ASSETS / "pypi_attestations-0.0.19.tar.gz.slsa.attestation"
 
-pypi_wheel_url = "https://files.pythonhosted.org/packages/70/f5/324edb6a802438e97e289992a41f81bb7a58a1cda2e49439e7e48896649e/sigstore-3.6.1-py3-none-any.whl"
-pypi_sdist_url = "https://files.pythonhosted.org/packages/db/89/b982115aabe1068fd581d83d2a0b26b78e1e7ce6184e75003d173e15c0b3/sigstore-3.6.1.tar.gz"
+pypi_wheel_url = "https://files.pythonhosted.org/packages/fb/f2/3e026065773b84c5b2345e2548a08b10105d324b9b95c72643f57a25fcbb/pypi_attestations-0.0.19-py3-none-any.whl"
+pypi_sdist_url = "https://files.pythonhosted.org/packages/c5/4d/a114bdd186903426bd9c1e9c3700761ec5eaac260fa3dfdef14bf84b751b/pypi_attestations-0.0.19.tar.gz"
 pypi_wheel_filename = pypi_wheel_url.split("/")[-1]
 pypi_sdist_filename = pypi_sdist_url.split("/")[-1]
-pypi_wheel_abbrev = f"sigstore/{pypi_wheel_filename}"
-pypi_sdist_abbrev = f"sigstore/{pypi_sdist_filename}"
+pypi_wheel_abbrev = f"pypi-attestations/{pypi_wheel_filename}"
+pypi_sdist_abbrev = f"pypi-attestations/{pypi_sdist_filename}"
 pypi_sdist_path = _ASSETS / pypi_sdist_filename
 pypi_sdist_provenance_path = _ASSETS / f"{pypi_sdist_filename}.provenance"
 
@@ -381,7 +381,7 @@ def test_verify_pypi_command(
             "verify",
             "pypi",
             "--repository",
-            "https://github.com/sigstore/sigstore-python",
+            "https://github.com/trailofbits/pypi-attestations",
             url_argument,
         ]
     )
@@ -394,7 +394,7 @@ def test_verify_pypi_command_with_local_files(caplog: pytest.LogCaptureFixture) 
             "verify",
             "pypi",
             "--repository",
-            "https://github.com/sigstore/sigstore-python",
+            "https://github.com/trailofbits/pypi-attestations",
             "--provenance-file",
             pypi_sdist_provenance_path.as_posix(),
             pypi_sdist_path.as_posix(),
@@ -413,7 +413,7 @@ def test_verify_pypi_command_env_fail(caplog: pytest.LogCaptureFixture) -> None:
                 "pypi",
                 "--staging",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url,
             ]
         )
@@ -435,7 +435,7 @@ def test_verify_pypi_command_failure_download(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url + "invalid",
             ]
         )
@@ -454,7 +454,7 @@ def test_verify_pypi_command_failure_download(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url,
             ]
         )
@@ -471,7 +471,7 @@ def test_verify_pypi_invalid_url(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "https://example.com/mypkg-1.2.0.tar.gz",
             ]
         )
@@ -489,7 +489,7 @@ def test_verify_pypi_invalid_sdist_filename_pypi(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 f"pypi:{pypi_wheel_filename}.invalid_ext",
             ]
         )
@@ -506,7 +506,7 @@ def test_verify_pypi_invalid_sdist_filename_pypi(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "pypi:invalid-sdist-name.tar.gz",  # Invalid sdist filename format
             ]
         )
@@ -529,7 +529,7 @@ def test_verify_pypi_validation_fails(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url,
             ]
         )
@@ -569,7 +569,7 @@ def test_verify_pypi_error_getting_provenance(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url,
             ]
         )
@@ -588,7 +588,7 @@ def test_verify_pypi_error_finding_package_info(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "pypi:somefile-1.0.0.tar.gz",
             ]
         )
@@ -607,7 +607,7 @@ def test_verify_pypi_error_finding_artifact_url(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "pypi:somefile-1.0.0.tar.gz",
             ]
         )
@@ -633,7 +633,7 @@ def test_verify_pypi_error_validating_provenance(
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 pypi_wheel_url,
             ]
         )
@@ -647,14 +647,14 @@ def test_verify_pypi_error_validating_provenance(
     "repository,expected_error",
     [
         (
-            "https://gitlab.com/sigstore/sigstore-python",
+            "https://gitlab.com/trailofbits/pypi-attestations",
             "Verification failed: provenance was signed by a github.com repository, but expected "
             "a gitlab.com repository",
         ),
         (
             "https://github.com/other/repo",
-            'Verification failed: provenance was signed by repository "sigstore/sigstore-python", '
-            'expected "other/repo"',
+            "Verification failed: provenance was signed by repository "
+            '"trailofbits/pypi-attestations", expected "other/repo"',
         ),
     ],
 )
@@ -683,7 +683,7 @@ def test_verify_pypi_command_publisher_doesnt_match_user_repository(
     "repository,expected_error",
     [
         # Only github.com or gitlab.com allowed
-        ("https://example.com/sigstore/sigstore-python", "Unsupported/invalid URL"),
+        ("https://example.com/trailofbits/pypi-attestations", "Unsupported/invalid URL"),
         # Only HTTPS allowed
         ("http://github.com/other/repo", "Unsupported/invalid URL"),
     ],
@@ -715,7 +715,7 @@ def test_verify_pypi_command_local_nonexistent_artifact(caplog: pytest.LogCaptur
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "--provenance-file",
                 pypi_sdist_provenance_path.as_posix(),
                 "nonexistent-artifact.whl",
@@ -731,7 +731,7 @@ def test_verify_pypi_command_local_nonexistent_provenance(caplog: pytest.LogCapt
                 "verify",
                 "pypi",
                 "--repository",
-                "https://github.com/sigstore/sigstore-python",
+                "https://github.com/trailofbits/pypi-attestations",
                 "--provenance-file",
                 "nonexistent-provenance.json",
                 pypi_sdist_path.as_posix(),
@@ -758,7 +758,7 @@ def test_verify_pypi_command_local_invalid_provenance(
                     "verify",
                     "pypi",
                     "--repository",
-                    "https://github.com/sigstore/sigstore-python",
+                    "https://github.com/trailofbits/pypi-attestations",
                     "--provenance-file",
                     f.name,
                     pypi_sdist_path.as_posix(),
