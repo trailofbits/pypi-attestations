@@ -18,7 +18,9 @@ from sigstore.verify import Verifier, policy
 
 import pypi_attestations._impl as impl
 
-ONLINE_TESTS = "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
+ONLINE_TESTS = (
+    "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
+) and "TEST_OFFLINE" not in os.environ
 
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
 
@@ -133,7 +135,7 @@ class TestAttestation:
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
         attestation = impl.Attestation.from_bundle(bundle)
 
-        predicate_type, predicate = attestation.verify(pol, gh_signed_dist)
+        predicate_type, predicate = attestation.verify(pol, gh_signed_dist, offline=True)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
@@ -146,7 +148,7 @@ class TestAttestation:
         bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
         attestation = impl.Attestation.from_bundle(bundle)
 
-        predicate_type, predicate = attestation.verify(publisher, gh_signed_dist)
+        predicate_type, predicate = attestation.verify(publisher, gh_signed_dist, offline=True)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate == {}
 
@@ -157,7 +159,7 @@ class TestAttestation:
         )
 
         attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_bytes())
-        predicate_type, predicate = attestation.verify(publisher, gl_signed_dist)
+        predicate_type, predicate = attestation.verify(publisher, gl_signed_dist, offline=True)
         assert predicate_type == "https://docs.pypi.org/attestations/publish/v1"
         assert predicate is None
 
@@ -171,7 +173,7 @@ class TestAttestation:
         attestation = impl.Attestation.from_bundle(bundle)
 
         with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
-            attestation.verify(publisher, gh_signed_dist)
+            attestation.verify(publisher, gh_signed_dist, offline=True)
 
     def test_verify_from_gitlab_publisher_wrong(self) -> None:
         publisher = impl.GitLabPublisher(
@@ -181,7 +183,7 @@ class TestAttestation:
 
         attestation = impl.Attestation.model_validate_json(gl_attestation_path.read_bytes())
         with pytest.raises(impl.VerificationError, match=r"Build Config URI .+ does not match"):
-            attestation.verify(publisher, gl_signed_dist)
+            attestation.verify(publisher, gl_signed_dist, offline=True)
 
     def test_verify(self) -> None:
         # Our checked-in asset has this identity.
@@ -190,7 +192,7 @@ class TestAttestation:
         )
 
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
-        predicate_type, predicate = attestation.verify(pol, dist, staging=True)
+        predicate_type, predicate = attestation.verify(pol, dist, staging=True, offline=True)
 
         assert attestation.statement["_type"] == "https://in-toto.io/Statement/v1"
         assert (
@@ -202,7 +204,7 @@ class TestAttestation:
 
         # convert the attestation to a bundle and verify it that way too
         bundle = attestation.to_bundle()
-        Verifier.staging().verify_dsse(bundle, policy.UnsafeNoOp())
+        Verifier.staging(offline=True).verify_dsse(bundle, policy.UnsafeNoOp())
 
     def test_verify_digest_mismatch(self, tmp_path: Path) -> None:
         # Our checked-in asset has this identity.
@@ -221,7 +223,7 @@ class TestAttestation:
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution digest"
         ):
-            attestation.verify(pol, modified_dist, staging=True)
+            attestation.verify(pol, modified_dist, staging=True, offline=True)
 
     def test_verify_filename_mismatch(self, tmp_path: Path) -> None:
         # Our checked-in asset has this identity.
@@ -240,7 +242,7 @@ class TestAttestation:
         with pytest.raises(
             impl.VerificationError, match="subject does not match distribution name"
         ):
-            attestation.verify(pol, different_name_dist, staging=True)
+            attestation.verify(pol, different_name_dist, staging=True, offline=True)
 
     def test_verify_policy_mismatch(self) -> None:
         # Wrong identity.
@@ -249,11 +251,11 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match=r"Certificate's SANs do not match"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_wrong_envelope(self, monkeypatch: pytest.MonkeyPatch) -> None:
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(lambda bundle, policy: ("fake-type", None))
             )
         )
@@ -263,11 +265,11 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="expected JSON envelope, got fake-type"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_bad_payload(self, monkeypatch: pytest.MonkeyPatch) -> None:
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(
                     lambda bundle, policy: ("application/vnd.in-toto+json", b"invalid json")
                 )
@@ -279,7 +281,7 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid statement"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_too_many_subjects(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
@@ -296,7 +298,7 @@ class TestAttestation:
         )
 
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(
                     lambda bundle, policy: (
                         "application/vnd.in-toto+json",
@@ -311,7 +313,7 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="too many subjects in statement"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_subject_missing_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
@@ -327,7 +329,7 @@ class TestAttestation:
         )
 
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(
                     lambda bundle, policy: (
                         "application/vnd.in-toto+json",
@@ -342,7 +344,7 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: missing name"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_subject_invalid_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
@@ -361,7 +363,7 @@ class TestAttestation:
         )
 
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(
                     lambda bundle, policy: (
                         "application/vnd.in-toto+json",
@@ -376,7 +378,7 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="invalid subject: Invalid wheel filename"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_verify_unknown_attestation_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         statement = (
@@ -401,7 +403,7 @@ class TestAttestation:
         )
 
         staging = pretend.call_recorder(
-            lambda: pretend.stub(
+            lambda offline: pretend.stub(
                 verify_dsse=pretend.call_recorder(
                     lambda bundle, policy: (
                         "application/vnd.in-toto+json",
@@ -416,7 +418,7 @@ class TestAttestation:
         attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
 
         with pytest.raises(impl.VerificationError, match="unknown attestation type: foo"):
-            attestation.verify(pol, dist, staging=True)
+            attestation.verify(pol, dist, staging=True, offline=True)
 
     def test_certificate_claims(self) -> None:
         attestation = impl.Attestation.model_validate_json(

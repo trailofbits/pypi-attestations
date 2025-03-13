@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `Attestation.verify(...)` API has been changed to accept an `offline`
+  parameter that, when True, disables TUF refreshes.
+- The CLI `verify` commands now also accept an `--offline` flag that disables
+  TUF refreshes. Additionally, when used with the `verify pypi` subcommand, the
+  `--offline` flag enforces that the distribution and provenance file arguments
+  must be local file paths.
+
 ## [0.0.22]
 
 ### Changed

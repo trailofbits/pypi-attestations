@@ -230,6 +230,7 @@ class Attestation(BaseModel):
         dist: Distribution,
         *,
         staging: bool = False,
+        offline: bool = False,
     ) -> tuple[str, Optional[dict[str, Any]]]:
         """Verify against an existing Python distribution.
 
@@ -240,6 +241,9 @@ class Attestation(BaseModel):
         By default, Sigstore's production verifier will be used. The
         `staging` parameter can be toggled to enable the staging verifier
         instead.
+
+        If `offline` is `True`, the verifier will not attempt to refresh the
+        TUF repository.
 
         On failure, raises an appropriate subclass of `AttestationError`.
         """
@@ -253,9 +257,9 @@ class Attestation(BaseModel):
             policy = identity
 
         if staging:
-            verifier = Verifier.staging()
+            verifier = Verifier.staging(offline=offline)
         else:
-            verifier = Verifier.production()
+            verifier = Verifier.production(offline=offline)
 
         bundle = self.to_bundle()
         try:
