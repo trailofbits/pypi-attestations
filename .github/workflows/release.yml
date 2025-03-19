@@ -46,7 +46,7 @@ jobs:
       attestations: write # to persist the attestation files
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
+        uses: actions/download-artifact@b14cf4c92620c250e1c074ab0a5800e37df86765 # v4
         with:
           name: distributions
           path: dist/
@@ -67,7 +67,7 @@ jobs:
 
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
+        uses: actions/download-artifact@b14cf4c92620c250e1c074ab0a5800e37df86765 # v4
         with:
           name: distributions
           path: dist/
