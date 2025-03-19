@@ -546,7 +546,7 @@ def _verify_pypi(args: argparse.Namespace) -> None:
         for attestation_bundle in provenance.attestation_bundles:
             publisher = attestation_bundle.publisher
             _check_repository_identity(expected_repository_url=args.repository, publisher=publisher)
-            policy = publisher._as_policy()  # noqa: SLF001.
+            policy = publisher._as_policy()  # noqa: SLF001
             for attestation in attestation_bundle.attestations:
                 attestation.verify(policy, dist, staging=args.staging, offline=args.offline)
     except VerificationError as verification_error:
@@ -567,7 +567,7 @@ def main() -> None:
 
     _logger.debug(args)
 
-    args._parser = parser  # noqa: SLF001.
+    args._parser = parser  # noqa: SLF001
 
     if args.subcommand == "sign":
         _sign(args)
