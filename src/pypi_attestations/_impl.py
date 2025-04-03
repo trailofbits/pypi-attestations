@@ -491,18 +491,31 @@ class _GitHubTrustedPublisherPolicy:
         raw_build_config_uri = _der_decode_utf8string(build_config_uri.value.public_bytes())
 
         # (2) Extract the source repo digest and ref.
-        source_repo_digest = cert.extensions.get_extension_for_oid(
-            policy._OIDC_SOURCE_REPOSITORY_DIGEST_OID  # noqa: SLF001
-        )
-        sha = _der_decode_utf8string(source_repo_digest.value.public_bytes())
+        # We require at least one of these to be present.
+        suffixes = []
+        try:
+            source_repo_digest = cert.extensions.get_extension_for_oid(
+                policy._OIDC_SOURCE_REPOSITORY_DIGEST_OID  # noqa: SLF001
+            )
+            suffixes.append(_der_decode_utf8string(source_repo_digest.value.public_bytes()))
+        except x509.ExtensionNotFound:
+            pass
 
-        source_repo_ref = cert.extensions.get_extension_for_oid(
-            policy._OIDC_SOURCE_REPOSITORY_REF_OID  # noqa: SLF001
-        )
-        ref = _der_decode_utf8string(source_repo_ref.value.public_bytes())
+        try:
+            source_repo_ref = cert.extensions.get_extension_for_oid(
+                policy._OIDC_SOURCE_REPOSITORY_REF_OID  # noqa: SLF001
+            )
+            suffixes.append(_der_decode_utf8string(source_repo_ref.value.public_bytes()))
+        except x509.ExtensionNotFound:
+            pass
+
+        if not suffixes:
+            raise sigstore.errors.VerificationError(
+                "Certificate must contain either Source Repository Digest or Source Repository Ref"
+            )
 
         # (3)-(4): Build the expected URIs and compare them
-        for suffix in [sha, ref]:
+        for suffix in suffixes:
             expected = (
                 f"https://github.com/{self._repository}/.github/workflows/{self._workflow}@{suffix}"
             )

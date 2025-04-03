@@ -9,6 +9,7 @@ from typing import Any
 import pretend
 import pytest
 import sigstore
+from cryptography import x509
 from pydantic import Base64Bytes, BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
@@ -662,3 +663,16 @@ class TestBase64Bytes:
     def test_encoding(self) -> None:
         model = DummyModel(base64_bytes=b"aaaa" * 76)
         assert "\\n" not in model.model_dump_json()
+
+
+class TestGitHubublisher:
+    def test_verifies_cert_with_missing_ref(self) -> None:
+        cert_path = _ASSETS / "no-source-repository-ref-extension.pem"
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+
+        publisher = impl.GitHubPublisher(
+            repository="SWIFTSIM/swiftgalaxy",
+            workflow="python-publish.yml",
+        )
+
+        publisher._as_policy().verify(cert)
