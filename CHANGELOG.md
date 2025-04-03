@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--offline` flag enforces that the distribution and provenance file arguments
   must be local file paths.
 
+### Fixed
+
+- Fixed a bug where `GitHubPublisher` policy verification would fail
+  if the `Source Repository Ref` or `Source Repository Digest` claim
+  was missing from the attestation's certificate. We require at least
+  one of the two claims, but not necessarily both
+  ([#109](https://github.com/trailofbits/pypi-attestations/pull/109))
+
 ## [0.0.22]
 
 ### Changed
