@@ -9,7 +9,10 @@ from typing import Any
 import pretend
 import pytest
 import sigstore
+import sigstore.errors
 from cryptography import x509
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import Base64Bytes, BaseModel, TypeAdapter, ValidationError
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
@@ -676,3 +679,41 @@ class TestGitHubublisher:
         )
 
         publisher._as_policy().verify(cert)
+
+    def test_fails_cert_with_no_digest_or_ref(self) -> None:
+        # To test this, we manually mangle a certificate
+        # to remove the digest extension. This ends up not being a valid
+        # certificate from an attestation perspective (since we replace
+        # the signature as well), but it's sufficient for the policy test.
+
+        cert_path = _ASSETS / "no-source-repository-ref-extension.pem"
+        orig_cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+
+        # Rebuild the certificate, but with the digest extension removed
+        builder = (
+            x509.CertificateBuilder()
+            .subject_name(orig_cert.subject)
+            .issuer_name(orig_cert.issuer)
+            .public_key(orig_cert.public_key())
+            .serial_number(orig_cert.serial_number)
+            .not_valid_before(orig_cert.not_valid_before)
+            .not_valid_after(orig_cert.not_valid_after)
+        )
+
+        for ext in orig_cert.extensions:
+            if ext.oid != policy._OIDC_SOURCE_REPOSITORY_DIGEST_OID:
+                builder = builder.add_extension(ext.value, ext.critical)
+
+        cert = builder.sign(ec.generate_private_key(ec.SECP256R1()), hashes.SHA256())
+
+        publisher = impl.GitHubPublisher(
+            repository="SWIFTSIM/swiftgalaxy",
+            workflow="python-publish.yml",
+        )
+        with pytest.raises(
+            sigstore.errors.VerificationError,
+            match=(
+                "Certificate must contain either Source Repository Digest or Source Repository Ref"
+            ),
+        ):
+            publisher._as_policy().verify(cert)
