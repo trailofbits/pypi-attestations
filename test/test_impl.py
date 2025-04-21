@@ -668,7 +668,7 @@ class TestBase64Bytes:
         assert "\\n" not in model.model_dump_json()
 
 
-class TestGitHubublisher:
+class TestGitHubPublisher:
     def test_verifies_cert_with_missing_ref(self) -> None:
         cert_path = _ASSETS / "no-source-repository-ref-extension.pem"
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
@@ -717,3 +717,14 @@ class TestGitHubublisher:
             ),
         ):
             publisher._as_policy().verify(cert)
+
+
+class TestGooglePublisher:
+    def test_verifies(self) -> None:
+        cert_path = _ASSETS / "200170367.pem"
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+
+        publisher = impl.GooglePublisher(
+            email="919436158236-compute@developer.gserviceaccount.com",
+        )
+        publisher._as_policy().verify(cert)

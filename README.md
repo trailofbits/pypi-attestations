@@ -141,6 +141,11 @@ pypi-attestations verify attestation  \
 ```
 
 ### Verifying a PyPI package
+
+> [!IMPORTANT]
+> This subcommand supports publish attestations from GitHub and GitLab.
+> It **does not currently support** Google Cloud-based publish attestations.
+
 > [!NOTE]
 > The package to verify can be passed either as a path to a local file, a
 > `pypi:` prefixed filename (e.g: 'pypi:sampleproject-1.0.0-py3-none-any.whl'),
@@ -161,8 +166,8 @@ pypi-attestations verify pypi --repository https://github.com/sigstore/sigstore-
   ~/Downloads/sigstore-3.6.1-py3-none-any.whl
 ```
 
-This command downloads the artifact and its provenance from PyPI. The artifact 
-is then verified against the provenance, while also checking that the provenance's 
+This command downloads the artifact and its provenance from PyPI. The artifact
+is then verified against the provenance, while also checking that the provenance's
 signing identity matches the repository specified by the user.
 
 ### Converting a Sigstore bundle into a PEP 740 Attestation

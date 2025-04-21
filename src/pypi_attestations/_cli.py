@@ -31,8 +31,9 @@ from pypi_attestations._impl import (
     ConversionError,
     Distribution,
     GitHubPublisher,
+    GitLabPublisher,
+    GooglePublisher,
     Provenance,
-    Publisher,
 )
 
 if typing.TYPE_CHECKING:  # pragma: no cover
@@ -382,7 +383,9 @@ def _get_provenance_from_pypi(dist: Distribution) -> Provenance:
         _die(f"Invalid provenance: {validation_error}")
 
 
-def _check_repository_identity(expected_repository_url: str, publisher: Publisher) -> None:
+def _check_repository_identity(
+    expected_repository_url: str, publisher: GitHubPublisher | GitLabPublisher
+) -> None:
     """Check that a repository url matches the given publisher's identity."""
     validator = (
         validators.Validator()
@@ -566,6 +569,8 @@ def _verify_pypi(args: argparse.Namespace) -> None:
     try:
         for attestation_bundle in provenance.attestation_bundles:
             publisher = attestation_bundle.publisher
+            if isinstance(publisher, GooglePublisher):  # pragma: no cover
+                _die("This CLI doesn't support Google Cloud-based publisher verification")
             _check_repository_identity(expected_repository_url=args.repository, publisher=publisher)
             policy = publisher._as_policy()  # noqa: SLF001
             for attestation in attestation_bundle.attestations:
