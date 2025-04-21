@@ -648,7 +648,22 @@ class GitLabPublisher(_PublisherBase):
         return _GitLabTrustedPublisherPolicy(self.repository, self.workflow_filepath)
 
 
-_Publisher = Union[GitHubPublisher, GitLabPublisher]
+class GooglePublisher(_PublisherBase):
+    """A Google Cloud-based Trusted Publisher."""
+
+    kind: Literal["Google"] = "Google"
+
+    email: str
+    """
+    The email address of the Google Cloud service account that performed
+    the publishing action.
+    """
+
+    def _as_policy(self) -> VerificationPolicy:
+        return policy.Identity(identity=self.email, issuer="https://accounts.google.com")
+
+
+_Publisher = Union[GitHubPublisher, GitLabPublisher, GooglePublisher]
 Publisher = Annotated[_Publisher, Field(discriminator="kind")]
 
 
