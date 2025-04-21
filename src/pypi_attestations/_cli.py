@@ -569,7 +569,7 @@ def _verify_pypi(args: argparse.Namespace) -> None:
     try:
         for attestation_bundle in provenance.attestation_bundles:
             publisher = attestation_bundle.publisher
-            if isinstance(publisher, GooglePublisher):
+            if isinstance(publisher, GooglePublisher):  # pragma: no cover
                 _die("This CLI doesn't support Google Cloud-based publisher verification")
             _check_repository_identity(expected_repository_url=args.repository, publisher=publisher)
             policy = publisher._as_policy()  # noqa: SLF001
