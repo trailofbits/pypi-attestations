@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `GooglePublisher` type has been added to support
+  Google Cloud-based Trusted Publishers
+  ([#114](https://github.com/trailofbits/pypi-attestations/pull/114))
+
 ## [0.0.23]
 
 ### Added
