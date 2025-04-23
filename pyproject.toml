@@ -7,11 +7,11 @@ name = "pypi-attestations"
 dynamic = ["version"]
 description = "A library to convert between Sigstore Bundles and PEP-740 Attestation objects"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Trail of Bits", email = "opensource@trailofbits.com" }]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
     "cryptography",
