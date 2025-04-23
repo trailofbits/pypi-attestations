@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Makes the `GooglePublisher` type and APIs public
+- Make the `GooglePublisher` type and APIs public
   ([#117](https://github.com/trailofbits/pypi-attestations/pull/117))
 
 ## [0.0.24]
