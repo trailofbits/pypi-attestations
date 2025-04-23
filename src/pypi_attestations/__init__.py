@@ -1,6 +1,6 @@
 """The `pypi-attestations` APIs."""
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 
 from ._impl import (
     Attestation,
