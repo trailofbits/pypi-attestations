@@ -6,6 +6,8 @@ on:
       - main
   pull_request:
 
+permissions: {}
+
 env:
   FORCE_COLOR: "1"
   PYTHONDEVMODE: "1"  # -X dev
