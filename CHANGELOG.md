@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.26]
+
 ### Fixed
 
 - This library no longer enforces distribution name "ultranormalization,"
@@ -301,7 +303,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.25...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.26...HEAD
+[0.0.26]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.25...v0.0.26
 [0.0.25]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.24...v0.0.25
 [0.0.24]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.23...v0.0.24
 [0.0.23]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.22...v0.0.23
