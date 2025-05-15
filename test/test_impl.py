@@ -555,12 +555,14 @@ class TestPackaging:
         ("foo-01.0beta1.zip", "foo-1.0b1.zip"),
     ],
 )
-def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
-    # normalization works as expected
-    assert impl._ultranormalize_dist_filename(input) == normalized
+def test_check_dist_filename(input: str, normalized: str) -> None:
+    # TODO: assert normalization if/when we re-add it.
 
-    # normalization is a fixpoint, and normalized names are valid dist names
-    assert impl._ultranormalize_dist_filename(normalized) == normalized
+    # each input is a well-formed dist name
+    impl._check_dist_filename(input)
+
+    # normalized forms are also well-formed
+    impl._check_dist_filename(normalized)
 
 
 @pytest.mark.parametrize(
@@ -590,9 +592,9 @@ def test_ultranormalize_dist_filename(input: str, normalized: str) -> None:
         "foo-1.2.3.tar.gz.zip",
     ],
 )
-def test_ultranormalize_dist_filename_invalid(input: str) -> None:
+def test_check_dist_filename_invalid(input: str) -> None:
     with pytest.raises(ValueError):
-        impl._ultranormalize_dist_filename(input)
+        impl._check_dist_filename(input)
 
 
 class TestPublisher:

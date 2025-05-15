@@ -91,7 +91,8 @@ class Distribution(BaseModel):
     @field_validator("name")
     @classmethod
     def _validate_name(cls, v: str) -> str:
-        return _ultranormalize_dist_filename(v)
+        _check_dist_filename(v)
+        return v
 
     @classmethod
     def from_file(cls, dist: Path) -> Distribution:
@@ -283,8 +284,15 @@ class Attestation(BaseModel):
             raise VerificationError("invalid subject: missing name")
 
         try:
-            # We always ultranormalize when signing, but other signers may not.
-            subject_name = _ultranormalize_dist_filename(subject.name)
+            # We don't allow signing of malformed distribution names.
+            # Previous versions of this package went further than this
+            # and "ultranormalized" the name, but this was superfluous
+            # and caused confusion for users who expected the subject to
+            # be an exact match for their distribution filename.
+            # See: https://github.com/pypi/warehouse/issues/18128
+            # See: https://github.com/trailofbits/pypi-attestations/issues/123
+            _check_dist_filename(subject.name)
+            subject_name = subject.name
         except ValueError as e:
             raise VerificationError(f"invalid subject: {str(e)}")
 
@@ -384,12 +392,13 @@ def _der_decode_utf8string(der: bytes) -> str:
     return der_decode(der, UTF8String)[0].decode()  # type: ignore[no-any-return]
 
 
-def _ultranormalize_dist_filename(dist: str) -> str:
-    """Return an "ultranormalized" form of the given distribution filename.
+def _check_dist_filename(dist: str) -> None:
+    """Validate a distribution filename for well-formedness.
 
-    This form is equivalent to the normalized form for sdist and wheel
-    filenames, with the additional stipulation that compressed tag sets,
-    if present, are also sorted alphanumerically.
+    This does **not** fully normalize the filename. For example,
+    a user can include a non-normalized version string or package name
+    (or compressed tag set in the case of wheels), and this function
+    will **not** reject so long as it parses correctly.
 
     Raises `ValueError` on any invalid distribution filename.
     """
@@ -397,44 +406,10 @@ def _ultranormalize_dist_filename(dist: str) -> str:
     # already rejects non-lowercase variants.
     if dist.endswith(".whl"):
         # `parse_wheel_filename` raises a supertype of ValueError on failure.
-        name, ver, build, tags = parse_wheel_filename(dist)
-
-        # The name has been normalized to replace runs of `[.-_]+` with `-`,
-        # which then needs to be replaced with `_` for the wheel.
-        name = name.replace("-", "_")
-
-        # `parse_wheel_filename` normalizes the name and version for us,
-        # so all we need to do is re-compress the tag set in a canonical
-        # order.
-        # NOTE(ww): This is written in a not very efficient manner, since
-        # I wasn't feeling smart.
-        impls, abis, platforms = set(), set(), set()
-        for tag in tags:
-            impls.add(tag.interpreter)
-            abis.add(tag.abi)
-            platforms.add(tag.platform)
-
-        impl_tag = ".".join(sorted(impls))
-        abi_tag = ".".join(sorted(abis))
-        platform_tag = ".".join(sorted(platforms))
-
-        if build:
-            parts = "-".join(
-                [name, str(ver), f"{build[0]}{build[1]}", impl_tag, abi_tag, platform_tag]
-            )
-        else:
-            parts = "-".join([name, str(ver), impl_tag, abi_tag, platform_tag])
-
-        return f"{parts}.whl"
+        parse_wheel_filename(dist)
     elif dist.endswith((".tar.gz", ".zip")):
         # `parse_sdist_filename` raises a supertype of ValueError on failure.
-        name, ver = parse_sdist_filename(dist)
-        name = name.replace("-", "_")
-
-        if dist.endswith(".tar.gz"):
-            return f"{name}-{ver}.tar.gz"
-        else:
-            return f"{name}-{ver}.zip"
+        parse_sdist_filename(dist)
     else:
         raise ValueError(f"unknown distribution format: {dist}")
 
