@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- This library no longer enforces distribution name "ultranormalization,"
+  which went above the requirements specified in PEP 740
+  ([#124](https://github.com/trailofbits/pypi-attestations/pull/124))
+
 ## [0.0.25]
 
 ### Fixed
