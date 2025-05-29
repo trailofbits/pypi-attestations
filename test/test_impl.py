@@ -655,6 +655,91 @@ class TestProvenance:
                 ],
             )
 
+    def test_verify_empty_required_publishers(self) -> None:
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
+        provenance = impl.Provenance(
+            attestation_bundles=[
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(repository="foo/bar", workflow="publish.yml"),
+                    attestations=[attestation],
+                )
+            ]
+        )
+        with pytest.raises(
+            impl.VerificationError,
+            match=("Verification failed: list of required publishers cannot be empty"),
+        ):
+            provenance.verify([], dist, offline=True)
+
+    def test_verify_missing_required_publisher(self) -> None:
+        attestation = impl.Attestation.model_validate_json(dist_attestation_path.read_bytes())
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+        provenance = impl.Provenance(
+            attestation_bundles=[
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(repository="foo/bar", workflow="publish.yml"),
+                    attestations=[attestation],
+                )
+            ]
+        )
+
+        required_publisher = impl.GitHubPublisher(repository="foo2/bar2", workflow="publish2.yml")
+
+        with pytest.raises(
+            impl.VerificationError,
+            match=("Verification failed: required publisher not present in provenance"),
+        ):
+            provenance.verify([required_publisher], dist, offline=True)
+
+    def test_verify_ok_required_publisher(self) -> None:
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+        provenance = impl.Provenance(
+            attestation_bundles=[
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(
+                        repository="trailofbits/pypi-attestation-models", workflow="release.yml"
+                    ),
+                    attestations=[attestation],
+                )
+            ]
+        )
+
+        required_publisher = impl.GitHubPublisher(
+            repository="trailofbits/pypi-attestation-models", workflow="release.yml"
+        )
+
+        predicates = provenance.verify([required_publisher], gh_signed_dist, offline=True)
+        assert len(predicates) == 1
+        assert predicates[0] == ("https://docs.pypi.org/attestations/publish/v1", {})
+
+    def test_verify_ok_ignore_publisher_not_in_required_publisher(self) -> None:
+        bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
+        attestation = impl.Attestation.from_bundle(bundle)
+        provenance = impl.Provenance(
+            attestation_bundles=[
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(
+                        repository="trailofbits/pypi-attestation-models", workflow="release.yml"
+                    ),
+                    attestations=[attestation],
+                ),
+                impl.AttestationBundle(
+                    publisher=impl.GitHubPublisher(repository="other/repo", workflow="release.yml"),
+                    attestations=[attestation],
+                ),
+            ]
+        )
+
+        required_publisher = impl.GitHubPublisher(
+            repository="trailofbits/pypi-attestation-models", workflow="release.yml"
+        )
+
+        predicates = provenance.verify([required_publisher], gh_signed_dist, offline=True)
+        assert len(predicates) == 1
+        assert predicates[0] == ("https://docs.pypi.org/attestations/publish/v1", {})
+
 
 class DummyModel(BaseModel):
     base64_bytes: Base64Bytes
