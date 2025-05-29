@@ -668,3 +668,50 @@ class Provenance(BaseModel):
     """
     One or more attestation "bundles".
     """
+
+    def verify(
+        self,
+        required_publishers: list[Publisher],
+        dist: Distribution,
+        *,
+        staging: bool = False,
+        offline: bool = False,
+    ) -> list[tuple[str, Optional[dict[str, Any]]]]:
+        """Verify against an existing Python distribution.
+
+        The `required_publishers` must be a non-empty list of the publisher
+        identities that will be used to verify the distribution. All of
+        these publishers must be present in the Provenance in order for
+        verification to succeed.
+
+        By default, Sigstore's production verifier will be used. The
+        `staging` parameter can be toggled to enable the staging verifier
+        instead.
+
+        If `offline` is `True`, the verifier will not attempt to refresh the
+        TUF repository.
+
+        On failure, raises an appropriate subclass of `AttestationError`.
+        """
+        if not required_publishers:
+            raise VerificationError("list of required publishers cannot be empty")
+
+        provenance_publishers = [bundle.publisher for bundle in self.attestation_bundles]
+        for required_publisher in required_publishers:
+            if required_publisher not in provenance_publishers:
+                raise VerificationError(
+                    f"required publisher not present in provenance: {required_publisher}"
+                )
+
+        # A list to contain all the return values of the individual Attestation.verify() calls
+        predicates: list[tuple[str, Optional[dict[str, Any]]]] = list()
+
+        for bundle in self.attestation_bundles:
+            if bundle.publisher not in required_publishers:
+                continue
+            for attestation in bundle.attestations:
+                predicates.append(
+                    attestation.verify(bundle.publisher, dist, staging=staging, offline=offline)
+                )
+
+        return predicates

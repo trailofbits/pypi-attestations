@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `Provenance` class now exposes a `verify()` method that takes a
+  list of required publishers and verifies that all the attestations
+  inside it pass verification with those required publishers. Verification
+  will fail if any of the required publishers is missing from the Provenance.
+
 ## [0.0.26]
 
 ### Fixed
