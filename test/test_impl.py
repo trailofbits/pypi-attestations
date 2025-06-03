@@ -461,7 +461,7 @@ class TestAttestation:
     def test_verify_different_wheel_tag_order(self) -> None:
         attestation_path = (
             _ASSETS
-            / "spt3g-1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.publish.attestation"
+            / "spt3g-1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.publish.attestation"  # noqa: E501
         )
 
         attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
