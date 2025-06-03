@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.27]
+
+### Fixed
+
+- Verification now compares the distribution filenames of artifacts
+  and attestations by parsing them first and comparing its components
+  (i.e. normalized name, version, tags) instead of doing a filename
+  string comparison. This fixes an issue where verification would fail
+  due to the artifact filename having the wheel tags in a different
+  order than the ones in the attestation.
+  ([#127](https://github.com/trailofbits/pypi-attestations/pull/127))
+
 ## [0.0.26]
 
 ### Fixed
@@ -303,7 +315,8 @@ This is a corrective release for [0.0.14].
 
 - Initial implementation
 
-[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.26...HEAD
+[Unreleased]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.27...HEAD
+[0.0.27]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.26...v0.0.27
 [0.0.26]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.25...v0.0.26
 [0.0.25]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.24...v0.0.25
 [0.0.24]: https://github.com/trailofbits/pypi-attestation-models/compare/v0.0.23...v0.0.24
