@@ -10,6 +10,10 @@ import json
 from enum import Enum
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, Optional, Union, get_args
 
+import packaging
+import packaging.tags
+import packaging.utils
+import packaging.version
 import sigstore.errors
 from annotated_types import MinLen  # noqa: TCH002
 from cryptography import x509
@@ -291,14 +295,17 @@ class Attestation(BaseModel):
             # be an exact match for their distribution filename.
             # See: https://github.com/pypi/warehouse/issues/18128
             # See: https://github.com/trailofbits/pypi-attestations/issues/123
-            _check_dist_filename(subject.name)
-            subject_name = subject.name
+            parsed_subject_name = _check_dist_filename(subject.name)
         except ValueError as e:
             raise VerificationError(f"invalid subject: {str(e)}")
 
-        if subject_name != dist.name:
+        # NOTE: Cannot fail, since we validate the `Distribution` name
+        # on construction.
+        parsed_dist_name = _check_dist_filename(dist.name)
+
+        if parsed_subject_name != parsed_dist_name:
             raise VerificationError(
-                f"subject does not match distribution name: {subject_name} != {dist.name}"
+                f"subject does not match distribution name: {subject.name} != {dist.name}"
             )
 
         digest = subject.digest.root.get("sha256")
@@ -392,7 +399,17 @@ def _der_decode_utf8string(der: bytes) -> str:
     return der_decode(der, UTF8String)[0].decode()  # type: ignore[no-any-return]
 
 
-def _check_dist_filename(dist: str) -> None:
+_SdistName = tuple[packaging.utils.NormalizedName, packaging.version.Version]
+_BdistName = tuple[
+    packaging.utils.NormalizedName,
+    packaging.version.Version,
+    packaging.utils.BuildTag,
+    frozenset[packaging.tags.Tag],
+]
+_DistName = Union[_SdistName, _BdistName]
+
+
+def _check_dist_filename(dist: str) -> _DistName:
     """Validate a distribution filename for well-formedness.
 
     This does **not** fully normalize the filename. For example,
@@ -406,10 +423,10 @@ def _check_dist_filename(dist: str) -> None:
     # already rejects non-lowercase variants.
     if dist.endswith(".whl"):
         # `parse_wheel_filename` raises a supertype of ValueError on failure.
-        parse_wheel_filename(dist)
+        return parse_wheel_filename(dist)
     elif dist.endswith((".tar.gz", ".zip")):
         # `parse_sdist_filename` raises a supertype of ValueError on failure.
-        parse_sdist_filename(dist)
+        return parse_sdist_filename(dist)
     else:
         raise ValueError(f"unknown distribution format: {dist}")
 
