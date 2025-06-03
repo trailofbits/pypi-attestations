@@ -458,6 +458,32 @@ class TestAttestation:
 
         assert not results ^ set(attestation.certificate_claims.items())
 
+    def test_verify_different_wheel_tag_order(self) -> None:
+        attestation_path = (
+            _ASSETS
+            / "spt3g-1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.publish.attestation"
+        )
+
+        attestation = impl.Attestation.model_validate_json(attestation_path.read_bytes())
+
+        pol = policy.Identity(
+            identity="william@yossarian.net", issuer="https://github.com/login/oauth"
+        )
+
+        dist = impl.Distribution(
+            # Distribution intentionally has a different tag order.
+            name="spt3g-1.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+            digest="d2772f9a5199f05ed1be8d9aa78b879e51772e3ead9d73fe8057257b1aec7cf8",
+        )
+
+        attestation.verify(pol, dist, staging=True, offline=True)
+
+        # Distribution names are not string equivalent, but do compare
+        # as equal when parsed.
+        subject_name = attestation.statement["subject"][0]["name"]
+        assert impl._check_dist_filename(subject_name) == impl._check_dist_filename(dist.name)
+        assert subject_name != dist.name
+
 
 def test_from_bundle_missing_signatures() -> None:
     bundle = Bundle.from_json(dist_bundle_path.read_bytes())
