@@ -11,5 +11,14 @@ def id_token() -> oidc.IdentityToken:
         if token is None:
             pytest.fail("misconfigured CI: no ambient OIDC credential")
         return oidc.IdentityToken(token)
+    elif "EXTREMELY_DANGEROUS_PUBLIC_OIDC_BEACON" in os.environ:
+        import requests
+
+        resp = requests.get(
+            "https://raw.githubusercontent.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/refs/heads/current-token/oidc-token.txt"
+        )
+        resp.raise_for_status()
+        id_token = resp.text.strip()
+        return oidc.IdentityToken(id_token)
     else:
-        return oidc.Issuer.staging().identity_token()
+        return oidc.Issuer("https://oauth2.sigstage.dev/auth").identity_token()

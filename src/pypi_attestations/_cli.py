@@ -21,6 +21,7 @@ from packaging.utils import (
 )
 from pydantic import ValidationError
 from rfc3986 import exceptions, uri_reference, validators
+from sigstore._internal.trust import ClientTrustConfig
 from sigstore.models import Bundle, InvalidBundle
 from sigstore.oidc import IdentityError, IdentityToken, Issuer
 from sigstore.sign import SigningContext
@@ -254,8 +255,11 @@ def get_identity_token(args: argparse.Namespace) -> IdentityToken:
     if oidc_token is not None:
         return IdentityToken(oidc_token)
 
-    # Fallback to interactive OAuth-2 Flow
-    issuer: Issuer = Issuer.staging() if args.staging else Issuer.production()
+    if args.staging:
+        trust_config = ClientTrustConfig.staging()
+    else:
+        trust_config = ClientTrustConfig.production()
+    issuer: Issuer = Issuer(trust_config.signing_config.get_oidc_url())
     return issuer.identity_token()
 
 
@@ -424,7 +428,9 @@ def _sign(args: argparse.Namespace) -> None:
     except IdentityError as identity_error:
         _die(f"Failed to detect identity: {identity_error}")
 
-    signing_ctx = SigningContext.staging() if args.staging else SigningContext.production()
+    trust_config = ClientTrustConfig.staging() if args.staging else ClientTrustConfig.production()
+
+    signing_ctx = SigningContext.from_trust_config(trust_config)
 
     # Validates that every file we want to sign exist but none of their attestations
     _validate_files(args.files, should_exist=True)

@@ -14,6 +14,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import Base64Bytes, BaseModel, TypeAdapter, ValidationError
+from sigstore._internal.trust import ClientTrustConfig
 from sigstore.dsse import DigestSet, StatementBuilder, Subject
 from sigstore.models import Bundle
 from sigstore.oidc import IdentityToken
@@ -69,7 +70,8 @@ class TestDistribution:
 class TestAttestation:
     @online
     def test_roundtrip(self, id_token: IdentityToken) -> None:
-        sign_ctx = SigningContext.staging()
+        trust_config = ClientTrustConfig.staging()
+        sign_ctx = SigningContext.from_trust_config(trust_config)
 
         with sign_ctx.signer(id_token) as signer:
             attestation = impl.Attestation.sign(signer, dist)
@@ -103,7 +105,9 @@ class TestAttestation:
 
         monkeypatch.setattr(IdentityToken, "in_validity_period", in_validity_period)
 
-        sign_ctx = SigningContext.staging()
+        trust_config = ClientTrustConfig.staging()
+        sign_ctx = SigningContext.from_trust_config(trust_config)
+
         with sign_ctx.signer(id_token, cache=False) as signer:
             with pytest.raises(impl.AttestationError):
                 impl.Attestation.sign(signer, dist)
@@ -120,7 +124,8 @@ class TestAttestation:
 
         monkeypatch.setattr(sigstore.sign.Signer, "sign_dsse", get_bundle)
 
-        sign_ctx = SigningContext.staging()
+        trust_config = ClientTrustConfig.staging()
+        sign_ctx = SigningContext.from_trust_config(trust_config)
 
         with pytest.raises(impl.AttestationError):
             with sign_ctx.signer(id_token) as signer:
@@ -485,6 +490,14 @@ class TestAttestation:
         assert subject_name != dist.name
 
 
+def test_from_bundle_not_dsse() -> None:
+    bundle = Bundle.from_json(dist_bundle_path.read_bytes())
+    bundle._inner.dsse_envelope = None
+
+    with pytest.raises(impl.ConversionError, match="bundle does not contain a DSSE envelope"):
+        impl.Attestation.from_bundle(bundle)
+
+
 def test_from_bundle_missing_signatures() -> None:
     bundle = Bundle.from_json(dist_bundle_path.read_bytes())
     bundle._inner.dsse_envelope.signatures = []  # noqa: SLF001
@@ -724,8 +737,8 @@ class TestGitHubPublisher:
             .issuer_name(orig_cert.issuer)
             .public_key(orig_cert.public_key())
             .serial_number(orig_cert.serial_number)
-            .not_valid_before(orig_cert.not_valid_before)
-            .not_valid_after(orig_cert.not_valid_after)
+            .not_valid_before(orig_cert.not_valid_before_utc)
+            .not_valid_after(orig_cert.not_valid_after_utc)
         )
 
         for ext in orig_cert.extensions:
