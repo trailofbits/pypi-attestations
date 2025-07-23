@@ -24,7 +24,7 @@ from sigstore.verify import Verifier, policy
 import pypi_attestations._impl as impl
 
 ONLINE_TESTS = (
-    "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
+    "CI" in os.environ or "EXTREMELY_DANGEROUS_PUBLIC_OIDC_BEACON" in os.environ
 ) and "TEST_OFFLINE" not in os.environ
 
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
