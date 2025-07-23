@@ -357,6 +357,7 @@ def test_verify_attestation_invalid_artifact(
     assert "Invalid Python package distribution" in caplog.text
 
 
+@online
 @pytest.mark.parametrize("staging", [True, False])
 def test_get_identity_token_oauth_flow(staging: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     # If no ambient credential is available, default to the OAuth2 flow
