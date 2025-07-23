@@ -119,7 +119,7 @@ class TestAttestation:
         def get_bundle(*_: Any) -> Bundle:
             # Duplicate the signature to trigger a Conversion error
             bundle = Bundle.from_json(gh_signed_dist_bundle_path.read_bytes())
-            bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])
+            bundle._inner.dsse_envelope.signatures.append(bundle._inner.dsse_envelope.signatures[0])  # type: ignore[union-attr]
             return bundle
 
         monkeypatch.setattr(sigstore.sign.Signer, "sign_dsse", get_bundle)
@@ -500,7 +500,7 @@ def test_from_bundle_not_dsse() -> None:
 
 def test_from_bundle_missing_signatures() -> None:
     bundle = Bundle.from_json(dist_bundle_path.read_bytes())
-    bundle._inner.dsse_envelope.signatures = []  # noqa: SLF001
+    bundle._inner.dsse_envelope.signatures = []  # type: ignore # noqa: SLF001
 
     with pytest.raises(impl.ConversionError, match="expected exactly one signature, got 0"):
         impl.Attestation.from_bundle(bundle)
