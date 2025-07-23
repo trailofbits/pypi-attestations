@@ -10,9 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Trail of Bits", email = "opensource@trailofbits.com" }]
-classifiers = [
-    "Programming Language :: Python :: 3",
-]
+classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [
     "cryptography",
     "packaging",
@@ -20,8 +18,8 @@ dependencies = [
     "pydantic >= 2.10.0",
     "requests",
     "rfc3986",
-    "sigstore >= 3.5.3, < 3.7",
-    "sigstore-protobuf-specs",
+    "sigstore @ git+https://github.com/sigstore/sigstore-python.git@ww/rm-protobufs",
+    "sigstore-models",
 ]
 requires-python = ">=3.9"
 
@@ -108,10 +106,6 @@ pyupgrade.keep-runtime-typing = true
 [tool.interrogate]
 # don't enforce documentation coverage for packaging, testing, the virtual
 # environment, or the CLI (which is documented separately).
-exclude = [
-    "env",
-    "test",
-    "src/pypi_attestations/__main__.py",
-]
+exclude = ["env", "test", "src/pypi_attestations/__main__.py"]
 ignore-semiprivate = true
 fail-under = 100
