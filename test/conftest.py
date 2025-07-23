@@ -21,5 +21,5 @@ def id_token() -> oidc.IdentityToken:
         if token is None:
             pytest.fail("misconfigured CI: no ambient OIDC credential")
         return oidc.IdentityToken(token)
-    else:
-        return oidc.Issuer("https://oauth2.sigstage.dev/auth").identity_token()
+
+    pytest.fail("no OIDC token available for tests")
