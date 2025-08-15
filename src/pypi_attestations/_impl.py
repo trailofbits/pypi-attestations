@@ -27,12 +27,14 @@ from pydantic_core import ValidationError
 from sigstore._utils import _sha256_streaming
 from sigstore.dsse import DigestSet, StatementBuilder, Subject, _Statement
 from sigstore.dsse import Envelope as DsseEnvelope
-from sigstore.dsse import Error as DsseError
-from sigstore.models import Bundle, LogEntry
+from sigstore.errors import Error as SigstoreError
+from sigstore.models import Bundle
+from sigstore.models import TransparencyLogEntry as _TransparencyLogEntry
 from sigstore.sign import ExpiredCertificate, ExpiredIdentity
 from sigstore.verify import Verifier, policy
-from sigstore_protobuf_specs.io.intoto import Envelope as _Envelope
-from sigstore_protobuf_specs.io.intoto import Signature as _Signature
+from sigstore_models.intoto import Envelope as _Envelope
+from sigstore_models.intoto import Signature as _Signature
+from sigstore_models.rekor.v1 import TransparencyLogEntry as _TransparencyLogEntryInner
 
 if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
@@ -198,7 +200,7 @@ class Attestation(BaseModel):
                 .predicate_type(AttestationType.PYPI_PUBLISH_V1)
                 .build()
             )
-        except DsseError as e:
+        except SigstoreError as e:
             raise AttestationError(str(e))
 
         try:
@@ -327,9 +329,9 @@ class Attestation(BaseModel):
 
         evp = DsseEnvelope(
             _Envelope(
-                payload=statement,
+                payload=base64.b64encode(statement),
                 payload_type=DsseEnvelope._TYPE,  # noqa: SLF001
-                signatures=[_Signature(sig=signature)],
+                signatures=[_Signature(sig=base64.b64encode(signature))],
             )
         )
 
@@ -340,7 +342,8 @@ class Attestation(BaseModel):
             raise ConversionError("invalid X.509 certificate") from err
 
         try:
-            log_entry = LogEntry._from_dict_rekor(tlog_entry)  # noqa: SLF001
+            inner = _TransparencyLogEntryInner.from_dict(tlog_entry)
+            log_entry = _TransparencyLogEntry(inner)
         except (ValidationError, sigstore.errors.Error) as err:
             raise ConversionError("invalid transparency log entry") from err
 
@@ -359,6 +362,9 @@ class Attestation(BaseModel):
 
         envelope = sigstore_bundle._inner.dsse_envelope  # noqa: SLF001
 
+        if not envelope:
+            raise ConversionError("bundle does not contain a DSSE envelope")
+
         if len(envelope.signatures) != 1:
             raise ConversionError(f"expected exactly one signature, got {len(envelope.signatures)}")
 
@@ -367,7 +373,7 @@ class Attestation(BaseModel):
             verification_material=VerificationMaterial(
                 certificate=base64.b64encode(certificate),
                 transparency_entries=[
-                    sigstore_bundle.log_entry._to_rekor().to_dict()  # noqa: SLF001
+                    sigstore_bundle.log_entry._inner.to_dict()  # noqa: SLF001
                 ],
             ),
             envelope=Envelope(
