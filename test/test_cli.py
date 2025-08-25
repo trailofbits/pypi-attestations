@@ -12,7 +12,7 @@ import pytest
 import requests
 import sigstore.oidc
 from pretend import raiser, stub
-from sigstore.oidc import IdentityError
+from sigstore.oidc import IdentityError, IdentityToken
 
 import pypi_attestations._cli
 from pypi_attestations._cli import (
@@ -24,7 +24,7 @@ from pypi_attestations._cli import (
 from pypi_attestations._impl import Attestation, AttestationError, ConversionError, Distribution
 
 ONLINE_TESTS = (
-    "CI" in os.environ or "TEST_INTERACTIVE" in os.environ
+    "CI" in os.environ or "EXTREMELY_DANGEROUS_PUBLIC_OIDC_BEACON" in os.environ
 ) and "TEST_OFFLINE" not in os.environ
 
 online = pytest.mark.skipif(not ONLINE_TESTS, reason="online tests not enabled")
@@ -75,7 +75,9 @@ def test_main_verbose_level(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @online
-def test_get_identity_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_identity_token(id_token: IdentityToken, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
+
     # Happy paths
     identity_token = get_identity_token(argparse.Namespace(staging=True))
     assert identity_token.in_validity_period()
@@ -92,7 +94,11 @@ def test_get_identity_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @online
-def test_sign_command(tmp_path: Path) -> None:
+def test_sign_command(
+    id_token: IdentityToken, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
+
     # Happy path
     copied_artifact = tmp_path / artifact_path.name
     shutil.copy(artifact_path, copied_artifact)
@@ -112,7 +118,11 @@ def test_sign_command(tmp_path: Path) -> None:
 
 
 @online
-def test_sign_missing_file(caplog: pytest.LogCaptureFixture) -> None:
+def test_sign_missing_file(
+    id_token: IdentityToken, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
+
     # Missing file
     with pytest.raises(SystemExit):
         run_main_with_command(
@@ -127,7 +137,14 @@ def test_sign_missing_file(caplog: pytest.LogCaptureFixture) -> None:
 
 
 @online
-def test_sign_signature_already_exists(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_sign_signature_already_exists(
+    id_token: IdentityToken,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
+
     artifact = tmp_path / artifact_path.with_suffix(".copy2.whl").name
     artifact.touch(exist_ok=False)
 
@@ -168,7 +185,14 @@ def test_sign_invalid_token(
 
 
 @online
-def test_sign_invalid_artifact(caplog: pytest.LogCaptureFixture, tmp_path: Path) -> None:
+def test_sign_invalid_artifact(
+    id_token: IdentityToken,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
+
     artifact = tmp_path / "pkg-1.0.0.exe"
     artifact.touch(exist_ok=False)
 
@@ -180,8 +204,12 @@ def test_sign_invalid_artifact(caplog: pytest.LogCaptureFixture, tmp_path: Path)
 
 @online
 def test_sign_fail_to_sign(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    id_token: IdentityToken,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: id_token._raw_token)
     monkeypatch.setattr(pypi_attestations._cli, "Attestation", stub(sign=raiser(AttestationError)))
     copied_artifact = tmp_path / artifact_path.name
     shutil.copy(artifact_path, copied_artifact)
@@ -329,19 +357,23 @@ def test_verify_attestation_invalid_artifact(
     assert "Invalid Python package distribution" in caplog.text
 
 
-def test_get_identity_token_oauth_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+@online
+@pytest.mark.parametrize("staging", [True, False])
+def test_get_identity_token_oauth_flow(staging: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     # If no ambient credential is available, default to the OAuth2 flow
     monkeypatch.setattr(sigstore.oidc, "detect_credential", lambda: None)
     identity_token = stub()
 
     class MockIssuer:
-        @staticmethod
-        def staging() -> stub:
-            return stub(identity_token=lambda: identity_token)
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def identity_token(self) -> sigstore.oidc.IdentityToken:
+            return identity_token  # type: ignore
 
     monkeypatch.setattr(pypi_attestations._cli, "Issuer", MockIssuer)
 
-    assert pypi_attestations._cli.get_identity_token(stub(staging=True)) == identity_token
+    assert pypi_attestations._cli.get_identity_token(stub(staging=staging)) == identity_token
 
 
 def test_validate_files(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:

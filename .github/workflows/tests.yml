@@ -10,8 +10,8 @@ permissions: {}
 
 env:
   FORCE_COLOR: "1"
-  PYTHONDEVMODE: "1"  # -X dev
-  PYTHONWARNDEFAULTENCODING: "1"  # -X warn_default_encoding
+  PYTHONDEVMODE: "1" # -X dev
+  PYTHONWARNDEFAULTENCODING: "1" # -X warn_default_encoding
 
 jobs:
   test:
@@ -24,8 +24,6 @@ jobs:
           - "3.12"
           - "3.13"
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write  # unit tests use the ambient OIDC credential
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -40,6 +38,10 @@ jobs:
 
       - name: test
         run: make test INSTALL_EXTRA=test
+        env:
+          # Use the pubic OIDC beacon for online tests, rather than relying
+          # on the workflow's own ID token.
+          EXTREMELY_DANGEROUS_PUBLIC_OIDC_BEACON: 1
 
   test-offline:
     runs-on: ubuntu-latest
